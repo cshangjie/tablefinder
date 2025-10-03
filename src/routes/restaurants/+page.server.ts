@@ -35,7 +35,7 @@ export const actions: Actions = {
 			};
 			
 			// Call internal search API
-			const response = await fetch('/api/search', {
+			const response = await fetch('/api/restaurants/search', {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json'

@@ -5,7 +5,7 @@ import type { Actions, PageServerLoad } from './$types';
 export const load: PageServerLoad = async ({ cookies }) => {
 	const session = cookies.get('session');
 	if (session === 'authenticated') {
-		throw redirect(303, '/search');
+		throw redirect(303, '/restaurants');
 	}
 };
 
@@ -30,6 +30,6 @@ export const actions: Actions = {
 			maxAge: 60 * 60 * 24 * 30
 		});
 
-		throw redirect(303, '/search');
+		throw redirect(303, '/restaurants');
 	}
 };

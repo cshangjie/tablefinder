@@ -7,12 +7,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	
 	event.locals.isAuthenticated = isAuthenticated;
 	
-	if (event.url.pathname.startsWith('/search') && !isAuthenticated) {
+	if (event.url.pathname.startsWith('/restaurants') && !isAuthenticated) {
 		throw redirect(303, '/');
 	}
-	
+
 	if (event.url.pathname === '/' && isAuthenticated) {
-		throw redirect(303, '/search');
+		throw redirect(303, '/restaurants');
 	}
 
 	return resolve(event);
