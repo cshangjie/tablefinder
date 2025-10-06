@@ -7,6 +7,8 @@
 	import { Button, Input, Label, Select } from '$lib/components/ui';
 	import { Calendar as CalendarComponent } from '$lib/components/ui/calendar/index.js';
 	import * as Popover from '$lib/components/ui/popover/index.js';
+	import * as Card from '$lib/components/ui/card/index.js';
+	import { Spinner } from '$lib/components/ui/spinner/index.js';
 	import { Calendar as CalendarIcon } from 'lucide-svelte';
 	import { DateFormatter, type DateValue, parseDate, today, getLocalTimeZone } from '@internationalized/date';
 	import { cn } from '$lib/utils.js';
@@ -321,7 +323,12 @@
 				size="lg"
 				class="w-full sm:w-auto"
 			>
-				{loading ? 'Searching...' : 'Find Restaurants'}
+				{#if loading}
+					<Spinner class="mr-2" />
+					Finding...
+				{:else}
+					Find Restaurants
+				{/if}
 			</Button>
 		</div>
 	</form>
@@ -355,7 +362,7 @@
 							</div>
 							<div class="space-y-2 min-w-[150px]">
 								<Label for="pageSize">Show</Label>
-								<Select id="pageSize" bind:value={pageSize} on:change={() => currentPage = 1}>
+								<Select id="pageSize" bind:value={pageSize} onchange={() => currentPage = 1}>
 									{#each pageSizeOptions as option}
 										<option value={option.value}>{option.label}</option>
 									{/each}
@@ -391,7 +398,7 @@
 							<p>Showing {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, sortedVenues.length)} of {sortedVenues.length} restaurants with availability</p>
 							
 							{#if totalPages > 1}
-								<div class="pagination-controls">
+								<div class="flex items-center justify-center gap-2">
 									<Button
 										variant="outline"
 										onclick={() => {
@@ -399,12 +406,11 @@
 											scrollToResults();
 										}}
 										disabled={currentPage <= 1}
-										class="pagination-btn"
 									>
 										← Previous
 									</Button>
 
-									<div class="page-numbers">
+									<div class="flex items-center gap-1">
 										{#each Array(totalPages).fill().map((_, i) => i + 1) as page}
 											{#if page === currentPage || page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)}
 												<Button
@@ -415,12 +421,12 @@
 															scrollToResults();
 														}
 													}}
-													class="page-btn {page === currentPage ? 'active' : ''}"
+													class="min-w-[2.5rem]"
 												>
 													{page}
 												</Button>
 											{:else if page === currentPage - 2 || page === currentPage + 2}
-												<span class="page-ellipsis">...</span>
+												<span class="px-2">...</span>
 											{/if}
 										{/each}
 									</div>
@@ -432,7 +438,6 @@
 											scrollToResults();
 										}}
 										disabled={currentPage >= totalPages}
-										class="pagination-btn"
 									>
 										Next →
 									</Button>
@@ -442,113 +447,118 @@
 						
 						<div class="results-grid">
 							{#each paginatedVenues as venue}
-							<div class="venue-card">
+							<Card.Card>
 								{#if venue.images && venue.images.length > 0}
 									<div class="venue-image">
 										<img src="{venue.images[0]}" alt="{resyHandler.getVenueDisplayName(venue)}" loading="lazy" />
 									</div>
 								{/if}
-								<div class="venue-header">
-									<h3>
-										<a href="{resyHandler.generateResyUrl(venue, reservationDate, partySize)}" 
-										   target="_blank" 
+
+								<Card.Header>
+									<Card.Title>
+										<a href="{resyHandler.generateResyUrl(venue, reservationDate, partySize)}"
+										   target="_blank"
 										   class="venue-link">
 											{resyHandler.getVenueDisplayName(venue)}
 										</a>
-									</h3>
-									<div class="venue-meta">
-										{#if venue.rating}
-											<span class="rating">★ {venue.rating.average.toFixed(1)} ({venue.rating.count})</span>
-										{/if}
-										{#if resyHandler.formatVenuePrice(venue)}
-											<span class="price-range">{resyHandler.formatVenuePrice(venue)}</span>
-										{/if}
-									</div>
-								</div>
+									</Card.Title>
+									<Card.Description>
+										<div class="venue-meta">
+											{#if venue.rating}
+												<span class="rating">★ {venue.rating.average.toFixed(1)} ({venue.rating.count})</span>
+											{/if}
+											{#if resyHandler.formatVenuePrice(venue)}
+												<span class="price-range">{resyHandler.formatVenuePrice(venue)}</span>
+											{/if}
+										</div>
+									</Card.Description>
+								</Card.Header>
 
-								<div class="venue-info">
-									<p class="location">
-										📍 {venue.locality || venue.location?.name || 'Location unknown'}
-										{#if resyHandler.getVenueNeighborhood(venue)}
-											• {resyHandler.getVenueNeighborhood(venue)}
-										{/if}
-									</p>
-									
-									{#if resyHandler.getVenueCuisineTypes(venue).length > 0}
-										<p class="cuisine">
-											🍽️ {resyHandler.getVenueCuisineTypes(venue).join(', ')}
+								<Card.Content>
+									<div class="venue-info">
+										<p class="location">
+											📍 {venue.locality || venue.location?.name || 'Location unknown'}
+											{#if resyHandler.getVenueNeighborhood(venue)}
+												• {resyHandler.getVenueNeighborhood(venue)}
+											{/if}
 										</p>
-									{/if}
 
-									<!-- Restaurant Content Sections -->
-									{#if resyHandler.getVenueContent(venue, 'about')}
-										<details class="restaurant-details">
-											<summary class="details-summary">About this restaurant</summary>
-											<div class="restaurant-description">
-												{@html resyHandler.getVenueContent(venue, 'about').replace(/\n/g, '<br>')}
-											</div>
-										</details>
-									{/if}
-									
-									{#if resyHandler.getVenueContent(venue, 'need_to_know')}
-										<details class="restaurant-details need-to-know">
-											<summary class="details-summary">💡 Need to Know</summary>
-											<div class="restaurant-description important">
-												{@html resyHandler.getVenueContent(venue, 'need_to_know').replace(/\n/g, '<br>')}
-											</div>
-										</details>
-									{/if}
-									
-									{#if resyHandler.getVenueContent(venue, 'why_we_like_it')}
-										<details class="restaurant-details why-like">
-											<summary class="details-summary">⭐ Why We Like It</summary>
-											<div class="restaurant-description highlight">
-												{@html resyHandler.getVenueContent(venue, 'why_we_like_it').replace(/\n/g, '<br>')}
-											</div>
-										</details>
-									{/if}
-								</div>
+										{#if resyHandler.getVenueCuisineTypes(venue).length > 0}
+											<p class="cuisine">
+												🍽️ {resyHandler.getVenueCuisineTypes(venue).join(', ')}
+											</p>
+										{/if}
 
-								{#if venue.availability?.slots && venue.availability.slots.length > 0}
-									{@const filteredSlots = venue.availability.slots.filter((slot) => {
-										const slotStart = new Date(slot.date.start);
-										const slotTotalMinutes = slotStart.getHours() * 60 + slotStart.getMinutes();
-										return slotTotalMinutes >= timeStart && slotTotalMinutes <= timeEnd;
-									})}
-									{#if filteredSlots.length > 0}
-										<div class="reservations-section">
-											<details class="reservations-details">
-												<summary class="reservations-header">
-													🎉 {filteredSlots.length} Reservations Available
-												</summary>
-												<div class="reservation-slots">
-													{#each filteredSlots as slot}
-														<div class="reservation-slot">
-															<div class="slot-time">{resyHandler.formatSlotTime(slot)}</div>
-															<div class="slot-duration">({resyHandler.getSlotDuration(slot)} min)</div>
-															<div class="slot-type">{slot.config?.type || 'Standard'}</div>
-														</div>
-													{/each}
+										<!-- Restaurant Content Sections -->
+										{#if resyHandler.getVenueContent(venue, 'about')}
+											<details class="restaurant-details">
+												<summary class="details-summary">About this restaurant</summary>
+												<div class="restaurant-description">
+													{@html resyHandler.getVenueContent(venue, 'about').replace(/\n/g, '<br>')}
 												</div>
 											</details>
-										</div>
+										{/if}
+
+										{#if resyHandler.getVenueContent(venue, 'need_to_know')}
+											<details class="restaurant-details need-to-know">
+												<summary class="details-summary">💡 Need to Know</summary>
+												<div class="restaurant-description important">
+													{@html resyHandler.getVenueContent(venue, 'need_to_know').replace(/\n/g, '<br>')}
+												</div>
+											</details>
+										{/if}
+
+										{#if resyHandler.getVenueContent(venue, 'why_we_like_it')}
+											<details class="restaurant-details why-like">
+												<summary class="details-summary">⭐ Why We Like It</summary>
+												<div class="restaurant-description highlight">
+													{@html resyHandler.getVenueContent(venue, 'why_we_like_it').replace(/\n/g, '<br>')}
+												</div>
+											</details>
+										{/if}
+									</div>
+
+									{#if venue.availability?.slots && venue.availability.slots.length > 0}
+										{@const filteredSlots = venue.availability.slots.filter((slot) => {
+											const slotStart = new Date(slot.date.start);
+											const slotTotalMinutes = slotStart.getHours() * 60 + slotStart.getMinutes();
+											return slotTotalMinutes >= timeStart && slotTotalMinutes <= timeEnd;
+										})}
+										{#if filteredSlots.length > 0}
+											<div class="reservations-section">
+												<details class="reservations-details">
+													<summary class="reservations-header">
+														🎉 {filteredSlots.length} Reservations Available
+													</summary>
+													<div class="reservation-slots">
+														{#each filteredSlots as slot}
+															<div class="reservation-slot">
+																<div class="slot-time">{resyHandler.formatSlotTime(slot)}</div>
+																<div class="slot-duration">({resyHandler.getSlotDuration(slot)} min)</div>
+																<div class="slot-type">{slot.config?.type || 'Standard'}</div>
+															</div>
+														{/each}
+													</div>
+												</details>
+											</div>
+										{:else}
+											<div class="no-reservations">
+												<p>❌ No reservations available for selected time window</p>
+											</div>
+										{/if}
 									{:else}
 										<div class="no-reservations">
-											<p>❌ No reservations available for selected time window</p>
+											<p>❌ No reservations available for selected date/time</p>
 										</div>
 									{/if}
-								{:else}
-									<div class="no-reservations">
-										<p>❌ No reservations available for selected date/time</p>
-									</div>
-								{/if}
-							</div>
+								</Card.Content>
+							</Card.Card>
 						{/each}
 						</div>
 						
 						<!-- Bottom pagination controls (duplicate of top) -->
 						{#if totalPages > 1}
-							<div class="pagination-controls bottom-pagination">
+							<div class="flex items-center justify-center gap-2 mt-6">
 								<Button
 									variant="outline"
 									onclick={() => {
@@ -556,12 +566,11 @@
 										scrollToResults();
 									}}
 									disabled={currentPage <= 1}
-									class="pagination-btn"
 								>
 									← Previous
 								</Button>
 
-								<div class="page-numbers">
+								<div class="flex items-center gap-1">
 									{#each Array(totalPages).fill().map((_, i) => i + 1) as page}
 										{#if page === currentPage || page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)}
 											<Button
@@ -572,12 +581,12 @@
 														scrollToResults();
 													}
 												}}
-												class="page-btn {page === currentPage ? 'active' : ''}"
+												class="min-w-[2.5rem]"
 											>
 												{page}
 											</Button>
 										{:else if page === currentPage - 2 || page === currentPage + 2}
-											<span class="page-ellipsis">...</span>
+											<span class="px-2">...</span>
 										{/if}
 									{/each}
 								</div>
@@ -589,7 +598,6 @@
 										scrollToResults();
 									}}
 									disabled={currentPage >= totalPages}
-									class="pagination-btn"
 								>
 									Next →
 								</Button>
