@@ -1,5 +1,5 @@
-export { default as Button } from './button.svelte';
-export { default as Input } from './input.svelte';
-export { default as Label } from './label.svelte';
+export { Button, buttonVariants } from './button';
+export { Input } from './input';
+export { Label } from './label';
+export { Card } from './card';
 export { default as Select } from './select.svelte';
-export { default as Card } from './card.svelte';

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import TimeRangeSlider from '$lib/components/TimeRangeSlider.svelte';
-	import MultiSelect from '$lib/MultiSelect.svelte';
+	import MultiSelect from '$lib/components/MultiSelect.svelte';
 	import { ResyResponseHandler, type ResyVenue } from '$lib/models/ResyResponse';
 	import type { ActionData } from './$types';
 	import { Button, Input, Label, Select } from '$lib/components/ui';
@@ -12,6 +12,7 @@
 	import { cn } from '$lib/utils.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+	import { Separator } from '$lib/components/ui/separator/index.js';
 
 	interface Props {
 		form: ActionData;
@@ -222,15 +223,17 @@
 			/>
 		</div>
 
+		<Separator class="!bg-black dark:!bg-white" />
+
 		<!-- Second Row: Date, Seats, Radius, Seating -->
-		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-			<div class="space-y-2">
+		<div class="flex flex-col lg:flex-row gap-4 items-stretch">
+			<div class="flex-[2] space-y-2">
 				<Label for="reservationDate">Reservation Date</Label>
 				<Popover.Root>
 					<Popover.Trigger
 						class={cn(
 							buttonVariants({ variant: 'outline' }),
-							'w-full justify-start text-left font-normal',
+							'w-full justify-start text-left font-normal h-10',
 							!selectedDate && 'text-muted-foreground'
 						)}
 					>
@@ -244,24 +247,28 @@
 				<input type="hidden" name="reservationDate" value={reservationDate} />
 			</div>
 
-			<div class="space-y-2">
+			<Separator orientation="vertical" class="!w-px h-16 !bg-black dark:!bg-white hidden lg:block self-center" />
+
+			<div class="flex-1 space-y-2">
 				<Label for="partySize">Seats</Label>
 				<Select id="partySize" name="partySize" bind:value={partySize} disabled={loading}>
-					<option value="1">1 person</option>
-					<option value="2">2 people</option>
-					<option value="3">3 people</option>
-					<option value="4">4 people</option>
-					<option value="5">5 people</option>
-					<option value="6">6 people</option>
-					<option value="7">7 people</option>
-					<option value="8">8 people</option>
-					<option value="9">9 people</option>
-					<option value="10">10+ people</option>
+					<option value="1">1</option>
+					<option value="2">2</option>
+					<option value="3">3</option>
+					<option value="4">4</option>
+					<option value="5">5</option>
+					<option value="6">6</option>
+					<option value="7">7</option>
+					<option value="8">8</option>
+					<option value="9">9</option>
+					<option value="10">10+</option>
 				</Select>
 			</div>
 
-			<div class="space-y-2">
-				<Label for="searchRadius">Search Radius (miles)</Label>
+			<Separator orientation="vertical" class="!w-px h-16 !bg-black dark:!bg-white hidden lg:block self-center" />
+
+			<div class="flex-1 space-y-2">
+				<Label for="searchRadius">Radius (miles)</Label>
 				<Input
 					type="number"
 					id="searchRadius"
@@ -276,7 +283,9 @@
 				/>
 			</div>
 
-			<div class="space-y-2">
+			<Separator orientation="vertical" class="!w-px h-16 !bg-black dark:!bg-white hidden lg:block self-center" />
+
+			<div class="flex-[2] space-y-2">
 				<Label for="seatingType">Seating Preference</Label>
 				<Select id="seatingType" name="seatingType" bind:value={seatingType} disabled={loading}>
 					<option value="">No Preference</option>
@@ -285,6 +294,8 @@
 				</Select>
 			</div>
 		</div>
+
+		<Separator class="!bg-black dark:!bg-white" />
 
 		<!-- Time Slider Row - Full Width -->
 		<div class="space-y-2">
@@ -305,6 +316,7 @@
 		<div class="flex justify-center">
 			<Button
 				type="submit"
+				variant="default"
 				disabled={loading || !city.trim() || !reservationDate}
 				size="lg"
 				class="w-full sm:w-auto"

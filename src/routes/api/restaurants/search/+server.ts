@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getGeocodingQuotaManager } from '$lib/geocache';
+import { getGeocodingQuotaManager } from '$lib/server/geocoding';
 
 // Helper function to normalize and match city names
 const normalizeCityName = (city: string): string => {
