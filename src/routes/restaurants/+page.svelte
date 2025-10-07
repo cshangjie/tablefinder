@@ -9,7 +9,7 @@
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
-	import { Calendar as CalendarIcon } from 'lucide-svelte';
+	import { Calendar as CalendarIcon, ChevronDown } from 'lucide-svelte';
 	import { DateFormatter, type DateValue, parseDate, today, getLocalTimeZone } from '@internationalized/date';
 	import { cn } from '$lib/utils.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
@@ -98,7 +98,20 @@
 		{ value: 20, label: '20 per page' },
 		{ value: 50, label: '50 per page' }
 	];
-	
+
+	// Collapsible card state
+	let expandedCards = $state(new Set<string>());
+
+	function toggleCard(venueId: string) {
+		const newExpanded = new Set(expandedCards);
+		if (newExpanded.has(venueId)) {
+			newExpanded.delete(venueId);
+		} else {
+			newExpanded.add(venueId);
+		}
+		expandedCards = newExpanded;
+	}
+
 	// Create ResyResponseHandler when we have results
 	const resyHandler = $derived(form?.results ? new ResyResponseHandler(form.results) : null);
 
@@ -235,7 +248,7 @@
 					<Popover.Trigger
 						class={cn(
 							buttonVariants({ variant: 'outline' }),
-							'w-full justify-start text-left font-normal h-10',
+							'w-full justify-start text-left font-normal h-10 dark:bg-secondary',
 							!selectedDate && 'text-muted-foreground'
 						)}
 					>
@@ -445,112 +458,118 @@
 							{/if}
 						</div>
 						
-						<div class="results-grid">
+						<div class="results-grid space-y-4">
 							{#each paginatedVenues as venue}
+							{@const isExpanded = expandedCards.has(venue.objectID)}
 							<Card.Card>
-								{#if venue.images && venue.images.length > 0}
-									<div class="venue-image">
-										<img src="{venue.images[0]}" alt="{resyHandler.getVenueDisplayName(venue)}" loading="lazy" />
-									</div>
-								{/if}
-
-								<Card.Header>
-									<Card.Title>
-										<a href="{resyHandler.generateResyUrl(venue, reservationDate, partySize)}"
-										   target="_blank"
-										   class="venue-link">
-											{resyHandler.getVenueDisplayName(venue)}
-										</a>
-									</Card.Title>
-									<Card.Description>
-										<div class="venue-meta">
-											{#if venue.rating}
-												<span class="rating">★ {venue.rating.average.toFixed(1)} ({venue.rating.count})</span>
-											{/if}
-											{#if resyHandler.formatVenuePrice(venue)}
-												<span class="price-range">{resyHandler.formatVenuePrice(venue)}</span>
-											{/if}
+								<Card.Header class="cursor-pointer" onclick={() => toggleCard(venue.objectID)}>
+									<div class="flex items-start justify-between gap-2">
+										<div class="flex-1">
+											<Card.Title>
+												<a href="{resyHandler.generateResyUrl(venue, reservationDate, partySize)}"
+												   target="_blank"
+												   class="venue-link"
+												   onclick={(e) => e.stopPropagation()}>
+													{resyHandler.getVenueDisplayName(venue)}
+												</a>
+											</Card.Title>
+											<Card.Description>
+												<div class="venue-meta">
+													{#if venue.rating}
+														<span class="rating">★ {venue.rating.average.toFixed(1)} ({venue.rating.count})</span>
+													{/if}
+													{#if resyHandler.formatVenuePrice(venue)}
+														<span class="price-range">{resyHandler.formatVenuePrice(venue)}</span>
+													{/if}
+												</div>
+											</Card.Description>
 										</div>
-									</Card.Description>
+										<ChevronDown class="h-5 w-5 transition-transform {isExpanded ? 'rotate-180' : ''}" />
+									</div>
 								</Card.Header>
 
 								<Card.Content>
 									<div class="venue-info">
-										<p class="location">
+										<p class="location-cuisine">
 											📍 {venue.locality || venue.location?.name || 'Location unknown'}
 											{#if resyHandler.getVenueNeighborhood(venue)}
 												• {resyHandler.getVenueNeighborhood(venue)}
 											{/if}
+											{#if resyHandler.getVenueCuisineTypes(venue).length > 0}
+												• 🍽️ {resyHandler.getVenueCuisineTypes(venue).join(', ')}
+											{/if}
 										</p>
 
-										{#if resyHandler.getVenueCuisineTypes(venue).length > 0}
-											<p class="cuisine">
-												🍽️ {resyHandler.getVenueCuisineTypes(venue).join(', ')}
-											</p>
-										{/if}
-
-										<!-- Restaurant Content Sections -->
-										{#if resyHandler.getVenueContent(venue, 'about')}
-											<details class="restaurant-details">
-												<summary class="details-summary">About this restaurant</summary>
-												<div class="restaurant-description">
-													{@html resyHandler.getVenueContent(venue, 'about').replace(/\n/g, '<br>')}
+										{#if isExpanded}
+											{#if venue.images && venue.images.length > 0}
+												<div class="venue-image mt-4">
+													<img src="{venue.images[0]}" alt="{resyHandler.getVenueDisplayName(venue)}" loading="lazy" />
 												</div>
-											</details>
-										{/if}
+											{/if}
 
-										{#if resyHandler.getVenueContent(venue, 'need_to_know')}
-											<details class="restaurant-details need-to-know">
-												<summary class="details-summary">💡 Need to Know</summary>
-												<div class="restaurant-description important">
-													{@html resyHandler.getVenueContent(venue, 'need_to_know').replace(/\n/g, '<br>')}
-												</div>
-											</details>
-										{/if}
-
-										{#if resyHandler.getVenueContent(venue, 'why_we_like_it')}
-											<details class="restaurant-details why-like">
-												<summary class="details-summary">⭐ Why We Like It</summary>
-												<div class="restaurant-description highlight">
-													{@html resyHandler.getVenueContent(venue, 'why_we_like_it').replace(/\n/g, '<br>')}
-												</div>
-											</details>
-										{/if}
-									</div>
-
-									{#if venue.availability?.slots && venue.availability.slots.length > 0}
-										{@const filteredSlots = venue.availability.slots.filter((slot) => {
-											const slotStart = new Date(slot.date.start);
-											const slotTotalMinutes = slotStart.getHours() * 60 + slotStart.getMinutes();
-											return slotTotalMinutes >= timeStart && slotTotalMinutes <= timeEnd;
-										})}
-										{#if filteredSlots.length > 0}
-											<div class="reservations-section">
-												<details class="reservations-details">
-													<summary class="reservations-header">
-														🎉 {filteredSlots.length} Reservations Available
-													</summary>
-													<div class="reservation-slots">
-														{#each filteredSlots as slot}
-															<div class="reservation-slot">
-																<div class="slot-time">{resyHandler.formatSlotTime(slot)}</div>
-																<div class="slot-duration">({resyHandler.getSlotDuration(slot)} min)</div>
-																<div class="slot-type">{slot.config?.type || 'Standard'}</div>
-															</div>
-														{/each}
+											<!-- Restaurant Content Sections -->
+											{#if resyHandler.getVenueContent(venue, 'about')}
+												<details class="restaurant-details">
+													<summary class="details-summary">About this restaurant</summary>
+													<div class="restaurant-description">
+														{@html resyHandler.getVenueContent(venue, 'about').replace(/\n/g, '<br>')}
 													</div>
 												</details>
-											</div>
-										{:else}
-											<div class="no-reservations">
-												<p>❌ No reservations available for selected time window</p>
-											</div>
+											{/if}
+
+											{#if resyHandler.getVenueContent(venue, 'need_to_know')}
+												<details class="restaurant-details need-to-know">
+													<summary class="details-summary">💡 Need to Know</summary>
+													<div class="restaurant-description important">
+														{@html resyHandler.getVenueContent(venue, 'need_to_know').replace(/\n/g, '<br>')}
+													</div>
+												</details>
+											{/if}
+
+											{#if resyHandler.getVenueContent(venue, 'why_we_like_it')}
+												<details class="restaurant-details why-like">
+													<summary class="details-summary">⭐ Why We Like It</summary>
+													<div class="restaurant-description highlight">
+														{@html resyHandler.getVenueContent(venue, 'why_we_like_it').replace(/\n/g, '<br>')}
+													</div>
+												</details>
+											{/if}
+
+											{#if venue.availability?.slots && venue.availability.slots.length > 0}
+												{@const filteredSlots = venue.availability.slots.filter((slot) => {
+													const slotStart = new Date(slot.date.start);
+													const slotTotalMinutes = slotStart.getHours() * 60 + slotStart.getMinutes();
+													return slotTotalMinutes >= timeStart && slotTotalMinutes <= timeEnd;
+												})}
+												{#if filteredSlots.length > 0}
+													<div class="reservations-section">
+														<details class="reservations-details">
+															<summary class="reservations-header">
+																🎉 {filteredSlots.length} Reservations Available
+															</summary>
+															<div class="reservation-slots">
+																{#each filteredSlots as slot}
+																	<div class="reservation-slot">
+																		<div class="slot-time">{resyHandler.formatSlotTime(slot)}</div>
+																		<div class="slot-duration">({resyHandler.getSlotDuration(slot)} min)</div>
+																		<div class="slot-type">{slot.config?.type || 'Standard'}</div>
+																	</div>
+																{/each}
+															</div>
+														</details>
+													</div>
+												{:else}
+													<div class="no-reservations">
+														<p>❌ No reservations available for selected time window</p>
+													</div>
+												{/if}
+											{:else}
+												<div class="no-reservations">
+													<p>❌ No reservations available for selected date/time</p>
+												</div>
+											{/if}
 										{/if}
-									{:else}
-										<div class="no-reservations">
-											<p>❌ No reservations available for selected date/time</p>
-										</div>
-									{/if}
+									</div>
 								</Card.Content>
 							</Card.Card>
 						{/each}
@@ -613,27 +632,15 @@
 					{#if venuesWithoutSlots.length > 0}
 						<div class="no-availability-section">
 							<h3>Restaurants matching your filters but without available reservations:</h3>
-							<div class="no-availability-list">
-								{#each venuesWithoutSlots as venue}
-									<div class="no-availability-item">
-										{#if venue.images && venue.images.length > 0}
-											<div class="no-availability-image">
-												<img src="{venue.images[0]}" alt="{resyHandler.getVenueDisplayName(venue)}" loading="lazy" />
-											</div>
-										{/if}
-										<div class="no-availability-content">
-											<a href="{resyHandler.generateResyUrl(venue, reservationDate, partySize)}" 
-											   target="_blank" 
-											   class="no-availability-link">
-												{resyHandler.getVenueDisplayName(venue)}
-											</a>
-											<span class="no-availability-location">
-												📍 {venue.locality || venue.location?.name || 'Location unknown'}
-											</span>
-										</div>
-									</div>
+							<p class="no-availability-list">
+								{#each venuesWithoutSlots as venue, i}
+									<a href="{resyHandler.generateResyUrl(venue, reservationDate, partySize)}"
+									   target="_blank"
+									   class="no-availability-link">
+										{resyHandler.getVenueDisplayName(venue)}
+									</a>{#if i < venuesWithoutSlots.length - 1}, {/if}
 								{/each}
-							</div>
+							</p>
 						</div>
 					{/if}
 				{:else}
