@@ -23,6 +23,88 @@ export class GeocodingQuotaManager {
         request_count INTEGER DEFAULT 0
       )
     `);
+
+    // Create geocoding cache table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS geocoding_cache (
+        normalized_query TEXT PRIMARY KEY,
+        original_query TEXT,
+        lat REAL NOT NULL,
+        lng REAL NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  }
+
+  private normalizeAddress(address: string): string {
+    return address
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ')  // Multiple spaces to single space
+      .replace(/\bstreet\b/g, 'st')
+      .replace(/\bboulevard\b/g, 'blvd')
+      .replace(/\bavenue\b/g, 'ave')
+      .replace(/\bdrive\b/g, 'dr')
+      .replace(/\broad\b/g, 'rd')
+      .replace(/\blane\b/g, 'ln')
+      .replace(/\bcourt\b/g, 'ct')
+      .replace(/\bsaint\b/g, 'st')
+      .replace(/\bsan francisco\b/g, 'sf')
+      .replace(/[,\.]/g, '')  // Remove commas and periods
+      .replace(/\s+/g, ' ')  // Clean up spaces again
+      .trim();
+  }
+
+  private getCachedGeocode(query: string): { lat: number; lng: number } | null {
+    const normalized = this.normalizeAddress(query);
+
+    // Try exact match first
+    const exactStmt = this.db.prepare(`
+      SELECT lat, lng FROM geocoding_cache WHERE normalized_query = ?
+    `);
+    const exactResult = exactStmt.get(normalized) as { lat: number; lng: number } | undefined;
+
+    if (exactResult) {
+      console.log('✨ Geocoding cache hit (exact):', {
+        inputAddress: query,
+        normalizedAddress: normalized,
+        cachedCoordinates: exactResult
+      });
+      return exactResult;
+    }
+
+    // Try partial/prefix match - find cached entries that start with our query
+    const prefixStmt = this.db.prepare(`
+      SELECT lat, lng, normalized_query
+      FROM geocoding_cache
+      WHERE normalized_query LIKE ? || '%'
+      ORDER BY LENGTH(normalized_query) ASC
+      LIMIT 1
+    `);
+    const prefixResult = prefixStmt.get(normalized) as { lat: number; lng: number; normalized_query: string } | undefined;
+
+    if (prefixResult) {
+      console.log('✨ Geocoding cache hit (partial):', {
+        inputAddress: query,
+        normalizedAddress: normalized,
+        matchedAddress: prefixResult.normalized_query,
+        cachedCoordinates: { lat: prefixResult.lat, lng: prefixResult.lng }
+      });
+      return { lat: prefixResult.lat, lng: prefixResult.lng };
+    }
+
+    return null;
+  }
+
+  private cacheGeocode(query: string, lat: number, lng: number): void {
+    const normalized = this.normalizeAddress(query);
+    const stmt = this.db.prepare(`
+      INSERT INTO geocoding_cache (normalized_query, original_query, lat, lng)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(normalized_query)
+      DO UPDATE SET original_query = ?, lat = ?, lng = ?, created_at = CURRENT_TIMESTAMP
+    `);
+    stmt.run(normalized, query, lat, lng, query, lat, lng);
   }
 
 
@@ -116,23 +198,59 @@ export class GeocodingQuotaManager {
 
 
   async geocode(query: string): Promise<{ lat: number; lng: number } | null> {
-    return await this.geocodeWithMapbox(query);
+    // Check cache first
+    const cached = this.getCachedGeocode(query);
+    if (cached) {
+      return cached;
+    }
+
+    // If not cached, geocode with Mapbox
+    const result = await this.geocodeWithMapbox(query);
+
+    // Cache the result if successful
+    if (result) {
+      this.cacheGeocode(query, result.lat, result.lng);
+    }
+
+    return result;
   }
 
-  getQuotaStats(): { 
+  getQuotaStats(): {
     mapboxUsageToday: number;
     mapboxLimit: number;
   } {
     const today = new Date().toISOString().split('T')[0];
-    
+
     const mapboxUsageStmt = this.db.prepare(`
       SELECT request_count FROM mapbox_quota_tracking WHERE date = ?
     `);
     const mapboxUsage = mapboxUsageStmt.get(today) as { request_count: number } | undefined;
-    
-    return { 
+
+    return {
       mapboxUsageToday: mapboxUsage?.request_count || 0,
       mapboxLimit: this.mapboxDailyQuotaLimit
+    };
+  }
+
+  getCacheStats(): {
+    totalCached: number;
+    cacheSize: string;
+  } {
+    const countStmt = this.db.prepare(`
+      SELECT COUNT(*) as count FROM geocoding_cache
+    `);
+    const result = countStmt.get() as { count: number };
+
+    // Get rough database size
+    const sizeStmt = this.db.prepare(`
+      SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()
+    `);
+    const sizeResult = sizeStmt.get() as { size: number };
+    const sizeKB = (sizeResult.size / 1024).toFixed(2);
+
+    return {
+      totalCached: result.count,
+      cacheSize: `${sizeKB} KB`
     };
   }
 

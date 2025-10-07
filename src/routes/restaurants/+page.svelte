@@ -474,14 +474,14 @@
 												</a>
 											</Card.Title>
 											<Card.Description>
-												<div class="venue-meta">
+												<span class="venue-meta">
 													{#if venue.rating}
 														<span class="rating">★ {venue.rating.average.toFixed(1)} ({venue.rating.count})</span>
 													{/if}
 													{#if resyHandler.formatVenuePrice(venue)}
 														<span class="price-range">{resyHandler.formatVenuePrice(venue)}</span>
 													{/if}
-												</div>
+												</span>
 											</Card.Description>
 										</div>
 										<ChevronDown class="h-5 w-5 transition-transform {isExpanded ? 'rotate-180' : ''}" />

@@ -198,21 +198,33 @@ export const POST: RequestHandler = async ({ request }) => {
     // Filter venues to ensure locality matches the entered city
     const filteredVenues = (data.search?.hits || []).filter((venue: any) => {
       if (!venue.locality) return false;
-      
+
       // Normalize locality for comparison
       const venueLocality = venue.locality.toLowerCase().trim();
       const expectedLocalityLower = expectedLocality.toLowerCase();
-      
+
       // For predefined cities, use strict matching
       if (cityData) {
-        return venueLocality === expectedLocalityLower || 
+        return venueLocality === expectedLocalityLower ||
                venueLocality.includes(expectedLocalityLower) ||
                expectedLocalityLower.includes(venueLocality);
       } else {
-        // For geocoded locations, be more flexible with matching
-        // Extract the main city name from the geocoded query
-        const mainCity = searchParams.city.split(',')[0].toLowerCase().trim();
-        return venueLocality.includes(mainCity) || mainCity.includes(venueLocality);
+        // For geocoded locations (addresses), be very flexible
+        // Check if the query contains common city names
+        const query = searchParams.city.toLowerCase();
+        const cityKeywords = ['san francisco', 'sf', 'new york', 'nyc', 'los angeles', 'la', 'chicago', 'seattle', 'portland', 'austin', 'boston', 'denver', 'miami', 'atlanta'];
+
+        // Try to find a city keyword in the query
+        const matchedCity = cityKeywords.find(city => query.includes(city));
+
+        if (matchedCity) {
+          // If we found a city keyword, match against it
+          return venueLocality.includes(matchedCity) || matchedCity.includes(venueLocality);
+        } else {
+          // If no city keyword found, skip locality filter (use geo-coordinates only)
+          // This allows addresses like "123 Main St 94118" to return nearby restaurants
+          return true;
+        }
       }
     });
     
