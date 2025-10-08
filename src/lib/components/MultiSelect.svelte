@@ -127,148 +127,195 @@
 	.multi-select-container {
 		position: relative;
 		width: 100%;
+		font-family: inherit;
+		color: inherit;
 	}
-	
+
+	.multi-select-container.disabled {
+		opacity: 0.6;
+		pointer-events: none;
+	}
+
 	.multi-select-trigger {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.5rem;
-		border: 1px solid #ddd;
-		border-radius: 4px;
-		background-color: white;
+		padding: 0.55rem 0.75rem;
+		min-height: 2.5rem;
+		border-radius: calc(var(--radius) * 1.6);
+		border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+		background: color-mix(in srgb, var(--color-card) 97%, var(--color-background) 3%);
 		cursor: pointer;
-		transition: all 0.2s ease;
-		min-height: 38px;
+		transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+		box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45);
 	}
-	
+
 	.multi-select-trigger:hover:not(.disabled) {
-		border-color: #007bff;
+		border-color: var(--color-ring);
 	}
-	
+
 	.multi-select-trigger.open {
-		border-color: #007bff;
-		box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+		border-color: var(--color-ring);
+		box-shadow:
+			0 0 0 3px color-mix(in srgb, var(--color-ring) 22%, transparent),
+			inset 0 1px 0 rgb(255 255 255 / 0.5);
 	}
-	
-	
+
 	.selected-display {
 		display: flex;
 		align-items: center;
-		gap: 0.25rem;
+		gap: 0.35rem;
 		flex: 1;
-		min-width: 0;
 		flex-wrap: wrap;
+		min-width: 0;
 	}
-	
-	.selected-item {
-		font-weight: 500;
-		color: #333;
-		background-color: #e3f2fd;
-		padding: 0.1rem 0.4rem;
-		border-radius: 12px;
-		font-size: 0.8rem;
-	}
-	
 
-	
+	.selected-item {
+		font-weight: 600;
+		color: var(--color-primary-foreground);
+		background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+		padding: 0.2rem 0.6rem;
+		border-radius: 999px;
+		font-size: 0.78rem;
+		letter-spacing: 0.02em;
+	}
+
 	.placeholder {
-		color: #999;
+		color: color-mix(in srgb, var(--color-muted-foreground) 70%, var(--color-foreground) 30%);
+		font-size: 0.85rem;
 	}
-	
+
 	.arrow {
-		font-size: 0.8rem;
-		color: #666;
-		transition: transform 0.2s ease;
+		font-size: 0.75rem;
+		color: color-mix(in srgb, var(--color-muted-foreground) 65%, var(--color-foreground) 35%);
+		margin-left: 0.75rem;
+		transition: transform 150ms ease;
 	}
-	
+
 	.arrow.open {
 		transform: rotate(180deg);
 	}
-	
+
 	.multi-select-dropdown {
 		position: absolute;
-		top: 100%;
+		z-index: 25;
+		top: calc(100% + 0.35rem);
 		left: 0;
 		right: 0;
-		background-color: white;
-		border: 1px solid #ddd;
-		border-top: none;
-		border-radius: 0 0 4px 4px;
-		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-		z-index: 1000;
-		max-height: 300px;
-		overflow: hidden;
+		border-radius: calc(var(--radius) * 1.8);
+		border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+		background: color-mix(in srgb, var(--color-card) 96%, var(--color-background) 4%);
+		box-shadow: 0 24px 42px -26px rgb(15 23 42 / 0.55);
+		padding: 0.75rem 0.9rem;
+		max-height: 310px;
 	}
-	
 
-	
 	.actions {
 		display: flex;
+		align-items: center;
+		justify-content: space-between;
 		gap: 0.5rem;
-		padding: 0.5rem;
-		border-bottom: 1px solid #eee;
+		margin-bottom: 0.7rem;
 	}
-	
+
 	.action-btn {
-		flex: 1;
-		padding: 0.25rem 0.5rem;
-		border: 1px solid #ddd;
-		border-radius: 4px;
-		background-color: #f8f9fa;
-		color: #333;
-		font-size: 0.8rem;
+		border: none;
+		background: transparent;
+		color: var(--color-primary);
+		font-weight: 600;
+		font-size: 0.78rem;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		padding: 0.35rem 0.6rem;
+		border-radius: calc(var(--radius) * 1.2);
 		cursor: pointer;
-		transition: all 0.2s ease;
+		transition: background 150ms ease, color 150ms ease;
 	}
-	
+
 	.action-btn:hover {
-		background-color: #e9ecef;
-		border-color: #007bff;
+		background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+		color: var(--color-primary-foreground);
 	}
-	
+
 	.options-list {
-		max-height: 200px;
+		display: flex;
+		flex-direction: column;
+		gap: 0.45rem;
+		max-height: 230px;
 		overflow-y: auto;
+		padding-right: 0.25rem;
 	}
-	
+
 	.option {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		padding: 0.5rem;
+		gap: 0.6rem;
+		padding: 0.45rem 0.55rem;
+		border-radius: calc(var(--radius) * 1.4);
 		cursor: pointer;
-		transition: background-color 0.2s ease;
+		transition: background 150ms ease, color 150ms ease, transform 150ms ease;
+		color: color-mix(in srgb, var(--color-muted-foreground) 70%, var(--color-foreground) 30%);
+		font-size: 0.86rem;
 	}
-	
+
 	.option:hover {
-		background-color: #f8f9fa;
+		background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+		color: var(--color-foreground);
 	}
-	
+
 	.option.selected {
-		background-color: #e3f2fd;
+		background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+		color: var(--color-primary-foreground);
+		transform: translateY(-1px);
 	}
-	
+
 	.checkbox {
-		width: 16px;
-		height: 16px;
-		border: 1px solid #ddd;
-		border-radius: 2px;
+		width: 1.1rem;
+		height: 1.1rem;
+		border-radius: 0.35rem;
+		border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 0.7rem;
-		color: white;
-		background-color: #007bff;
+		font-size: 0.75rem;
+		background: color-mix(in srgb, var(--color-card) 96%, var(--color-background) 4%);
 	}
-	
-	.option:not(.selected) .checkbox {
-		background-color: white;
-		color: transparent;
+
+	.option.selected .checkbox {
+		background: var(--color-primary);
+		color: var(--color-primary-foreground);
+		border-color: color-mix(in srgb, var(--color-primary) 85%, rgb(0 0 0) 15%);
 	}
-	
+
 	.option-label {
 		flex: 1;
-		font-size: 14px;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.options-list::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.options-list::-webkit-scrollbar-track {
+		background: color-mix(in srgb, var(--color-border) 50%, transparent);
+	}
+
+	.options-list::-webkit-scrollbar-thumb {
+		background: color-mix(in srgb, var(--color-primary) 35%, transparent);
+		border-radius: 3px;
+	}
+
+	@media (max-width: 540px) {
+		.actions {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.action-btn {
+			width: 100%;
+			text-align: center;
+		}
 	}
 </style>

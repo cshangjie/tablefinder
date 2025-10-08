@@ -45,7 +45,7 @@
 <button
 	type="button"
 	onclick={toggleTheme}
-	class="inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-primary hover:text-primary-foreground hover:border-primary h-9 w-9 transition-colors relative"
+	class="theme-toggle inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-primary hover:text-primary-foreground hover:border-primary h-9 w-9 transition-colors relative"
 >
 	<Sun class="size-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
 	<Moon class="absolute size-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />

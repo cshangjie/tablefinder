@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import TimeRangeSlider from '$lib/components/TimeRangeSlider.svelte';
 	import MultiSelect from '$lib/components/MultiSelect.svelte';
 	import { ResyResponseHandler, type ResyVenue } from '$lib/models/ResyResponse';
 	import type { ActionData } from './$types';
-	import { Button, Input, Label, Select } from '$lib/components/ui';
+	import { Button, Input, Label, Select, Skeleton } from '$lib/components/ui';
 	import { Calendar as CalendarComponent } from '$lib/components/ui/calendar/index.js';
+	import { Slider } from '$lib/components/ui/slider/index.js';
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Spinner } from '$lib/components/ui/spinner/index.js';
@@ -14,7 +14,6 @@
 	import { cn } from '$lib/utils.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-	import { Separator } from '$lib/components/ui/separator/index.js';
 
 	interface Props {
 		form: ActionData;
@@ -28,10 +27,9 @@
 		get: (key: string) => data.url.searchParams[key] || null
 	};
 	
-	// Constants for time calculations
-	const MIN_HOUR = 9; // 9 AM
-	const MAX_HOUR = 23; // 11 PM
-	const TOTAL_INTERVALS = 56; // (23-9) * 4 = 56 fifteen-minute intervals
+	// Constants for time calculations (in minutes from midnight)
+	const MIN_TIME = 9 * 60; // 9:00 AM = 540 minutes
+	const MAX_TIME = 23 * 60 + 30; // 11:30 PM = 1410 minutes
 	
 	// Helper function for default date
 	const formatDateForInput = () => {
@@ -123,14 +121,6 @@
 		};
 	};
 
-	const handleLogout = () => {
-		const form = document.createElement('form');
-		form.method = 'POST';
-		form.action = '?/logout';
-		document.body.appendChild(form);
-		form.submit();
-	};
-
 	const formatTime = (totalMinutes: number) => {
 		const hour = Math.floor(totalMinutes / 60);
 		const minutes = totalMinutes % 60;
@@ -199,6 +189,7 @@
 
 	// Scroll to results function
 	let resultsSection: HTMLElement | undefined = $state();
+	const placeholderCards = Array.from({ length: 3 }, (_, i) => i);
 
 	const scrollToResults = () => {
 		if (resultsSection) {
@@ -214,204 +205,371 @@
 	<title>Search - JennyTime</title>
 </svelte:head>
 
-<div class="container mx-auto max-w-6xl p-6 space-y-8">
-	<div class="flex items-center justify-between">
+<div class="search-page w-full p-6 space-y-8">
+	<div class="search-header flex items-center justify-between">
 		<h1 class="text-3xl font-bold">Restaurant Search</h1>
-		<div class="flex items-center gap-2">
+		<div class="search-actions flex items-center gap-2">
 			<ThemeToggle />
-			<Button variant="secondary" onclick={handleLogout}>Logout</Button>
+			<form method="POST" action="?/logout">
+				<Button type="submit" variant="secondary">Logout</Button>
+			</form>
 		</div>
 	</div>
 
-	<form method="POST" action="?/search" use:enhance={handleSubmit} class="space-y-6">
-		<!-- City/Address Row - Full Width -->
-		<div class="space-y-2">
-			<Label for="city">City/Address</Label>
-			<Input
-				type="text"
-				id="city"
-				name="city"
-				bind:value={city}
-				placeholder="City, neighborhood, or address (e.g., New York, SoHo NYC, Times Square)"
-				disabled={loading}
-				required
-			/>
-		</div>
+	<div class="search-layout">
+		<section class="filters-panel">
+			<form method="POST" action="?/search" use:enhance={handleSubmit} class="search-form space-y-6">
+				<!-- City/Address Row - Full Width -->
+				<div class="field-group space-y-2">
+					<Label for="city">City/Address</Label>
+					<Input
+						type="text"
+						id="city"
+						name="city"
+						bind:value={city}
+						placeholder="City or address"
+						disabled={loading}
+						required
+					/>
+				</div>
 
-		<Separator class="!bg-black dark:!bg-white" />
-
-		<!-- Second Row: Date, Seats, Radius, Seating -->
-		<div class="flex flex-col lg:flex-row gap-4 items-stretch">
-			<div class="flex-[2] space-y-2">
-				<Label for="reservationDate">Reservation Date</Label>
-				<Popover.Root>
-					<Popover.Trigger
-						class={cn(
-							buttonVariants({ variant: 'outline' }),
-							'w-full justify-start text-left font-normal h-10 dark:bg-secondary',
-							!selectedDate && 'text-muted-foreground'
-						)}
-					>
-						<CalendarIcon class="mr-2 size-4" />
-						{selectedDate ? df.format(selectedDate.toDate(getLocalTimeZone())) : 'Pick a date'}
-					</Popover.Trigger>
-					<Popover.Content class="w-auto p-0">
-						<CalendarComponent type="single" bind:value={selectedDate} minValue={minDate} />
-					</Popover.Content>
-				</Popover.Root>
-				<input type="hidden" name="reservationDate" value={reservationDate} />
-			</div>
-
-			<Separator orientation="vertical" class="!w-px h-16 !bg-black dark:!bg-white hidden lg:block self-center" />
-
-			<div class="flex-1 space-y-2">
-				<Label for="partySize">Seats</Label>
-				<Select id="partySize" name="partySize" bind:value={partySize} disabled={loading}>
-					<option value="1">1</option>
-					<option value="2">2</option>
-					<option value="3">3</option>
-					<option value="4">4</option>
-					<option value="5">5</option>
-					<option value="6">6</option>
-					<option value="7">7</option>
-					<option value="8">8</option>
-					<option value="9">9</option>
-					<option value="10">10+</option>
-				</Select>
-			</div>
-
-			<Separator orientation="vertical" class="!w-px h-16 !bg-black dark:!bg-white hidden lg:block self-center" />
-
-			<div class="flex-1 space-y-2">
-				<Label for="searchRadius">Radius (miles)</Label>
-				<Input
-					type="number"
-					id="searchRadius"
-					name="searchRadius"
-					bind:value={searchRadius}
-					min="0.5"
-					max="50"
-					step="0.5"
-					placeholder="3"
-					disabled={loading}
-					required
-				/>
-			</div>
-
-			<Separator orientation="vertical" class="!w-px h-16 !bg-black dark:!bg-white hidden lg:block self-center" />
-
-			<div class="flex-[2] space-y-2">
-				<Label for="seatingType">Seating Preference</Label>
-				<Select id="seatingType" name="seatingType" bind:value={seatingType} disabled={loading}>
-					<option value="">No Preference</option>
-					<option value="indoor">Indoor</option>
-					<option value="outdoor">Outdoor</option>
-				</Select>
-			</div>
-		</div>
-
-		<Separator class="!bg-black dark:!bg-white" />
-
-		<!-- Time Slider Row - Full Width -->
-		<div class="space-y-2">
-			<Label>Time Window</Label>
-			<TimeRangeSlider
-				bind:value={timeValues}
-				min={9 * 60}
-				max={23 * 60}
-				step={15}
-				disabled={loading}
-				formatLabel={formatTime}
-			/>
-			<!-- Hidden inputs for form submission -->
-			<input type="hidden" name="timeStart" value={timeStartForm} />
-			<input type="hidden" name="timeEnd" value={timeEndForm} />
-		</div>
-
-		<div class="flex justify-center">
-			<Button
-				type="submit"
-				variant="default"
-				disabled={loading || !city.trim() || !reservationDate}
-				size="lg"
-				class="w-full sm:w-auto"
-			>
-				{#if loading}
-					<Spinner class="mr-2" />
-					Finding...
-				{:else}
-					Find Restaurants
-				{/if}
-			</Button>
-		</div>
-	</form>
-
-	<!-- Results Section -->
-	{#if form}
-		{#if form.success && form.results}
-			<div class="space-y-6" bind:this={resultsSection}>
-				<div class="space-y-4">
-					<h2 class="text-2xl font-semibold">Search Results</h2>
-					{#if form.results.search?.hits && form.results.search.hits.length > 0}
-						<div class="flex flex-wrap gap-4 items-end">
-							<div class="space-y-2 flex-1 min-w-[200px]">
-								<Label for="sortBy">Sort by</Label>
-								<Select id="sortBy" bind:value={sortBy}>
-									<option value="default">Least Reservations</option>
-									<option value="rating">Highest Rated</option>
-									<option value="distance">Distance (Closest First)</option>
-								</Select>
-							</div>
-							<div class="space-y-2 flex-1 min-w-[200px]">
-								<Label for="priceRanges">Price Range</Label>
-								<MultiSelect
-									options={priceRangeOptions}
-									bind:selected={selectedPriceRanges}
-									placeholder="All prices"
-									disabled={loading}
-									name="priceRanges"
-									id="priceRanges"
-								/>
-							</div>
-							<div class="space-y-2 min-w-[150px]">
-								<Label for="pageSize">Show</Label>
-								<Select id="pageSize" bind:value={pageSize} onchange={() => currentPage = 1}>
-									{#each pageSizeOptions as option}
-										<option value={option.value}>{option.label}</option>
-									{/each}
-								</Select>
-							</div>
+				<!-- Time Selection Row -->
+				<div class="field-group field-range space-y-3">
+					<Label for="timeRange">Time Range</Label>
+					<div class="slider-wrapper space-y-2">
+						<Slider
+							type="multiple"
+							bind:value={timeValues}
+							min={MIN_TIME}
+							max={MAX_TIME}
+							step={15}
+							class="w-full"
+						/>
+						<div class="flex justify-between text-sm text-muted-foreground">
+							<span>{formatTime(timeValues[0])}</span>
+							<span>{formatTime(timeValues[1])}</span>
 						</div>
-					{/if}
-				</div>
-				
-				<!-- Raw JSON Debug Output -->
-				<div class="debug-sections">
-					<details class="json-debug">
-						<summary>Raw Resy API Request (Debug)</summary>
-						<pre class="json-output">{JSON.stringify(form.results._debugRequest || {}, null, 2)}</pre>
-					</details>
-					
-					<details class="json-debug">
-						<summary>Raw Resy API Response (Debug)</summary>
-						<pre class="json-output">{JSON.stringify(form.results, null, 2)}</pre>
-					</details>
+					</div>
+					<input type="hidden" name="timeStart" value={timeStartForm} />
+					<input type="hidden" name="timeEnd" value={timeEndForm} />
 				</div>
 
-				{#if resyHandler && resyHandler.getVenues().length > 0}
-					{@const selectedPriceIds = selectedPriceRanges.map(p => parseInt(p))}
-					{@const venuesWithSlots = resyHandler.filterVenuesByTimeAndPrice(timeStart, timeEnd, selectedPriceIds)}
-					{@const venuesWithoutSlots = resyHandler.getVenues().filter(venue => !venuesWithSlots.includes(venue))}
-					{@const sortedVenues = getSortedVenues(venuesWithSlots, sortBy)}
-					{@const totalPages = getTotalPages(sortedVenues.length, pageSize)}
-					{@const paginatedVenues = getPaginatedVenues(sortedVenues, currentPage, pageSize)}
-					{#if sortedVenues.length > 0}
-						<!-- Results summary and pagination controls -->
-						<div class="results-summary">
-							<p>Showing {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, sortedVenues.length)} of {sortedVenues.length} restaurants with availability</p>
+				<!-- Second Row: Date, Seats, Radius, Seating -->
+					<div class="field-grid">
+						<div class="field-group space-y-2">
+						<Label for="reservationDate">Reservation Date</Label>
+						<Popover.Root>
+							<Popover.Trigger
+								class={cn(
+									buttonVariants({ variant: 'outline' }),
+									'w-full justify-start text-left font-normal h-10 dark:bg-secondary',
+									!selectedDate && 'text-muted-foreground'
+								)}
+							>
+								<CalendarIcon class="mr-2 size-4" />
+								{selectedDate ? df.format(selectedDate.toDate(getLocalTimeZone())) : 'Pick a date'}
+							</Popover.Trigger>
+							<Popover.Content class="w-auto p-0">
+								<CalendarComponent type="single" bind:value={selectedDate} minValue={minDate} />
+							</Popover.Content>
+						</Popover.Root>
+						<input type="hidden" name="reservationDate" value={reservationDate} />
+					</div>
+
+					<div class="field-group space-y-2">
+						<Label for="partySize">Seats</Label>
+						<Select id="partySize" name="partySize" bind:value={partySize} disabled={loading}>
+							<option value="1">1</option>
+							<option value="2">2</option>
+							<option value="3">3</option>
+							<option value="4">4</option>
+							<option value="5">5</option>
+							<option value="6">6</option>
+							<option value="7">7</option>
+							<option value="8">8</option>
+							<option value="9">9</option>
+							<option value="10">10+</option>
+						</Select>
+					</div>
+
+					<div class="field-group space-y-2">
+						<Label for="searchRadius">Radius (miles)</Label>
+						<Input
+							type="number"
+							id="searchRadius"
+							name="searchRadius"
+							bind:value={searchRadius}
+							min="0.5"
+							max="50"
+							step="0.5"
+							placeholder="3"
+							disabled={loading}
+								required
+							/>
+						</div>
+
+						<div class="field-group space-y-2">
+						<Label for="seatingType">Seating Preference</Label>
+						<Select id="seatingType" name="seatingType" bind:value={seatingType} disabled={loading}>
+							<option value="">No Preference</option>
+							<option value="indoor">Indoor</option>
+							<option value="outdoor">Outdoor</option>
+						</Select>
+					</div>
+				</div>
+
+
+				<div class="flex justify-center">
+					<Button
+						type="submit"
+						variant="default"
+						disabled={loading || !city.trim() || !reservationDate}
+						size="lg"
+						class="w-full sm:w-auto"
+					>
+						{#if loading}
+							<Spinner class="mr-2" />
+							Finding...
+						{:else}
+							Find Restaurants
+						{/if}
+					</Button>
+				</div>
+			</form>
+		</section>
+
+		<section class="results-panel" bind:this={resultsSection}>
+			<!-- Results Section -->
+			{#if form?.success && form?.results}
+				<div class="results-section space-y-6">
+					<div class="results-controls space-y-4">
+						<h2 class="text-2xl font-semibold">Search Results</h2>
+						{#if form.results.search?.hits && form.results.search.hits.length > 0}
+							<div class="results-filters flex flex-wrap gap-4 items-end">
+								<div class="filter-group space-y-2 flex-1 min-w-[200px]">
+									<Label for="sortBy">Sort by</Label>
+									<Select id="sortBy" bind:value={sortBy}>
+										<option value="default">Least Reservations</option>
+										<option value="rating">Highest Rated</option>
+										<option value="distance">Distance (Closest First)</option>
+									</Select>
+								</div>
+								<div class="filter-group space-y-2 flex-1 min-w-[200px]">
+									<Label for="priceRanges">Price Range</Label>
+									<MultiSelect
+										options={priceRangeOptions}
+										bind:selected={selectedPriceRanges}
+										placeholder="All prices"
+										disabled={loading}
+										name="priceRanges"
+										id="priceRanges"
+									/>
+								</div>
+								<div class="filter-group space-y-2 min-w-[150px]">
+									<Label for="pageSize">Show</Label>
+									<Select id="pageSize" bind:value={pageSize} onchange={() => currentPage = 1}>
+										{#each pageSizeOptions as option}
+											<option value={option.value}>{option.label}</option>
+										{/each}
+									</Select>
+								</div>
+							</div>
+						{/if}
+					</div>
+					
+					<!-- Raw JSON Debug Output -->
+					<div class="debug-sections">
+						<details class="json-debug">
+							<summary>Raw Resy API Request (Debug)</summary>
+							<pre class="json-output">{JSON.stringify(form.results._debugRequest || {}, null, 2)}</pre>
+						</details>
+						
+						<details class="json-debug">
+							<summary>Raw Resy API Response (Debug)</summary>
+							<pre class="json-output">{JSON.stringify(form.results, null, 2)}</pre>
+						</details>
+					</div>
+
+					{#if resyHandler && resyHandler.getVenues().length > 0}
+						{@const selectedPriceIds = selectedPriceRanges.map(p => parseInt(p))}
+						{@const venuesWithSlots = resyHandler.filterVenuesByTimeAndPrice(timeStart, timeEnd, selectedPriceIds)}
+						{@const venuesWithoutSlots = resyHandler.getVenues().filter(venue => !venuesWithSlots.includes(venue))}
+						{@const sortedVenues = getSortedVenues(venuesWithSlots, sortBy)}
+						{@const totalPages = getTotalPages(sortedVenues.length, pageSize)}
+						{@const paginatedVenues = getPaginatedVenues(sortedVenues, currentPage, pageSize)}
+						{#if sortedVenues.length > 0}
+							<!-- Results summary and pagination controls -->
+							<div class="results-summary">
+								<p>Showing {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, sortedVenues.length)} of {sortedVenues.length} restaurants with availability</p>
+								
+								{#if totalPages > 1}
+									<div class="flex items-center justify-center gap-2">
+										<Button
+											variant="outline"
+											onclick={() => {
+												currentPage = Math.max(1, currentPage - 1);
+												scrollToResults();
+											}}
+											disabled={currentPage <= 1}
+										>
+											← Previous
+										</Button>
+
+										<div class="flex items-center gap-1">
+											{#each Array(totalPages).fill().map((_, i) => i + 1) as page}
+												{#if page === currentPage || page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)}
+													<Button
+														variant={page === currentPage ? 'default' : 'outline'}
+														onclick={() => {
+															if (page !== currentPage) {
+																currentPage = page;
+																scrollToResults();
+															}
+														}}
+														class="min-w-[2.5rem]"
+													>
+														{page}
+													</Button>
+												{:else if page === currentPage - 2 || page === currentPage + 2}
+													<span class="px-2">...</span>
+												{/if}
+											{/each}
+										</div>
+
+										<Button
+											variant="outline"
+											onclick={() => {
+												currentPage = Math.min(totalPages, currentPage + 1);
+												scrollToResults();
+											}}
+											disabled={currentPage >= totalPages}
+										>
+											Next →
+										</Button>
+									</div>
+								{/if}
+							</div>
 							
+							<div class="results-grid space-y-4">
+								{#each paginatedVenues as venue}
+								{@const isExpanded = expandedCards.has(venue.objectID)}
+								<Card.Card class="result-card">
+									<Card.Header class="result-card__header cursor-pointer" onclick={() => toggleCard(venue.objectID)}>
+										<div class="flex items-start justify-between gap-2">
+											<div class="flex-1">
+												<Card.Title>
+													<a href="{resyHandler.generateResyUrl(venue, reservationDate, partySize)}"
+													   target="_blank"
+													   class="venue-link"
+													   onclick={(e) => e.stopPropagation()}>
+														{resyHandler.getVenueDisplayName(venue)}
+													</a>
+												</Card.Title>
+												<Card.Description>
+													<span class="venue-meta">
+														{#if venue.rating}
+															<span class="rating">★ {venue.rating.average.toFixed(1)} ({venue.rating.count})</span>
+														{/if}
+														{#if resyHandler.formatVenuePrice(venue)}
+															<span class="price-range">{resyHandler.formatVenuePrice(venue)}</span>
+														{/if}
+													</span>
+												</Card.Description>
+											</div>
+											<ChevronDown class="h-5 w-5 transition-transform {isExpanded ? 'rotate-180' : ''}" />
+										</div>
+									</Card.Header>
+
+									<Card.Content class="result-card__content">
+										<div class="venue-info">
+											<p class="location-cuisine">
+												📍 {venue.locality || venue.location?.name || 'Location unknown'}
+												{#if resyHandler.getVenueNeighborhood(venue)}
+													• {resyHandler.getVenueNeighborhood(venue)}
+												{/if}
+												{#if resyHandler.getVenueCuisineTypes(venue).length > 0}
+													• 🍽️ {resyHandler.getVenueCuisineTypes(venue).join(', ')}
+												{/if}
+											</p>
+
+											{#if isExpanded}
+												{#if venue.images && venue.images.length > 0}
+													<div class="venue-image mt-4">
+														<img src="{venue.images[0]}" alt="{resyHandler.getVenueDisplayName(venue)}" loading="lazy" />
+													</div>
+												{/if}
+
+												<!-- Restaurant Content Sections -->
+												{#if resyHandler.getVenueContent(venue, 'about')}
+													<details class="restaurant-details">
+														<summary class="details-summary">About this restaurant</summary>
+														<div class="restaurant-description">
+															{@html resyHandler.getVenueContent(venue, 'about').replace(/\n/g, '<br>')}
+														</div>
+													</details>
+												{/if}
+
+												{#if resyHandler.getVenueContent(venue, 'need_to_know')}
+													<details class="restaurant-details need-to-know">
+														<summary class="details-summary">💡 Need to Know</summary>
+														<div class="restaurant-description important">
+															{@html resyHandler.getVenueContent(venue, 'need_to_know').replace(/\n/g, '<br>')}
+														</div>
+													</details>
+												{/if}
+
+												{#if resyHandler.getVenueContent(venue, 'why_we_like_it')}
+													<details class="restaurant-details why-like">
+														<summary class="details-summary">⭐ Why We Like It</summary>
+														<div class="restaurant-description highlight">
+															{@html resyHandler.getVenueContent(venue, 'why_we_like_it').replace(/\n/g, '<br>')}
+														</div>
+													</details>
+												{/if}
+
+												{#if venue.availability?.slots && venue.availability.slots.length > 0}
+													{@const filteredSlots = venue.availability.slots.filter((slot) => {
+														const slotStart = new Date(slot.date.start);
+														const slotTotalMinutes = slotStart.getHours() * 60 + slotStart.getMinutes();
+														return slotTotalMinutes >= timeStart && slotTotalMinutes <= timeEnd;
+													})}
+													{#if filteredSlots.length > 0}
+														<div class="reservations-section">
+															<details class="reservations-details">
+																<summary class="reservations-header">
+																	🎉 {filteredSlots.length} Reservations Available
+																</summary>
+																<div class="reservation-slots">
+																	{#each filteredSlots as slot}
+																		<div class="reservation-slot">
+																			<div class="slot-time">{resyHandler.formatSlotTime(slot)}</div>
+																			<div class="slot-duration">({resyHandler.getSlotDuration(slot)} min)</div>
+																			<div class="slot-type">{slot.config?.type || 'Standard'}</div>
+																		</div>
+																	{/each}
+																</div>
+															</details>
+														</div>
+													{:else}
+														<div class="no-reservations">
+															<p>❌ No reservations available for selected time window</p>
+														</div>
+													{/if}
+												{:else}
+													<div class="no-reservations">
+														<p>❌ No reservations available for selected date/time</p>
+													</div>
+												{/if}
+											{/if}
+										</div>
+									</Card.Content>
+								</Card.Card>
+							{/each}
+							</div>
+							
+							<!-- Bottom pagination controls (duplicate of top) -->
 							{#if totalPages > 1}
-								<div class="flex items-center justify-center gap-2">
+								<div class="flex items-center justify-center gap-2 mt-6">
 									<Button
 										variant="outline"
 										onclick={() => {
@@ -456,205 +614,71 @@
 									</Button>
 								</div>
 							{/if}
-						</div>
-						
-						<div class="results-grid space-y-4">
-							{#each paginatedVenues as venue}
-							{@const isExpanded = expandedCards.has(venue.objectID)}
-							<Card.Card>
-								<Card.Header class="cursor-pointer" onclick={() => toggleCard(venue.objectID)}>
-									<div class="flex items-start justify-between gap-2">
-										<div class="flex-1">
-											<Card.Title>
-												<a href="{resyHandler.generateResyUrl(venue, reservationDate, partySize)}"
-												   target="_blank"
-												   class="venue-link"
-												   onclick={(e) => e.stopPropagation()}>
-													{resyHandler.getVenueDisplayName(venue)}
-												</a>
-											</Card.Title>
-											<Card.Description>
-												<span class="venue-meta">
-													{#if venue.rating}
-														<span class="rating">★ {venue.rating.average.toFixed(1)} ({venue.rating.count})</span>
-													{/if}
-													{#if resyHandler.formatVenuePrice(venue)}
-														<span class="price-range">{resyHandler.formatVenuePrice(venue)}</span>
-													{/if}
-												</span>
-											</Card.Description>
-										</div>
-										<ChevronDown class="h-5 w-5 transition-transform {isExpanded ? 'rotate-180' : ''}" />
-									</div>
-								</Card.Header>
+						{:else}
+							<div class="no-results">
+								<p>No restaurants with available reservations found for your search criteria. Try adjusting your filters or selecting a different date/time.</p>
+							</div>
+						{/if}
 
-								<Card.Content>
-									<div class="venue-info">
-										<p class="location-cuisine">
-											📍 {venue.locality || venue.location?.name || 'Location unknown'}
-											{#if resyHandler.getVenueNeighborhood(venue)}
-												• {resyHandler.getVenueNeighborhood(venue)}
-											{/if}
-											{#if resyHandler.getVenueCuisineTypes(venue).length > 0}
-												• 🍽️ {resyHandler.getVenueCuisineTypes(venue).join(', ')}
-											{/if}
-										</p>
-
-										{#if isExpanded}
-											{#if venue.images && venue.images.length > 0}
-												<div class="venue-image mt-4">
-													<img src="{venue.images[0]}" alt="{resyHandler.getVenueDisplayName(venue)}" loading="lazy" />
-												</div>
-											{/if}
-
-											<!-- Restaurant Content Sections -->
-											{#if resyHandler.getVenueContent(venue, 'about')}
-												<details class="restaurant-details">
-													<summary class="details-summary">About this restaurant</summary>
-													<div class="restaurant-description">
-														{@html resyHandler.getVenueContent(venue, 'about').replace(/\n/g, '<br>')}
-													</div>
-												</details>
-											{/if}
-
-											{#if resyHandler.getVenueContent(venue, 'need_to_know')}
-												<details class="restaurant-details need-to-know">
-													<summary class="details-summary">💡 Need to Know</summary>
-													<div class="restaurant-description important">
-														{@html resyHandler.getVenueContent(venue, 'need_to_know').replace(/\n/g, '<br>')}
-													</div>
-												</details>
-											{/if}
-
-											{#if resyHandler.getVenueContent(venue, 'why_we_like_it')}
-												<details class="restaurant-details why-like">
-													<summary class="details-summary">⭐ Why We Like It</summary>
-													<div class="restaurant-description highlight">
-														{@html resyHandler.getVenueContent(venue, 'why_we_like_it').replace(/\n/g, '<br>')}
-													</div>
-												</details>
-											{/if}
-
-											{#if venue.availability?.slots && venue.availability.slots.length > 0}
-												{@const filteredSlots = venue.availability.slots.filter((slot) => {
-													const slotStart = new Date(slot.date.start);
-													const slotTotalMinutes = slotStart.getHours() * 60 + slotStart.getMinutes();
-													return slotTotalMinutes >= timeStart && slotTotalMinutes <= timeEnd;
-												})}
-												{#if filteredSlots.length > 0}
-													<div class="reservations-section">
-														<details class="reservations-details">
-															<summary class="reservations-header">
-																🎉 {filteredSlots.length} Reservations Available
-															</summary>
-															<div class="reservation-slots">
-																{#each filteredSlots as slot}
-																	<div class="reservation-slot">
-																		<div class="slot-time">{resyHandler.formatSlotTime(slot)}</div>
-																		<div class="slot-duration">({resyHandler.getSlotDuration(slot)} min)</div>
-																		<div class="slot-type">{slot.config?.type || 'Standard'}</div>
-																	</div>
-																{/each}
-															</div>
-														</details>
-													</div>
-												{:else}
-													<div class="no-reservations">
-														<p>❌ No reservations available for selected time window</p>
-													</div>
-												{/if}
-											{:else}
-												<div class="no-reservations">
-													<p>❌ No reservations available for selected date/time</p>
-												</div>
-											{/if}
-										{/if}
-									</div>
-								</Card.Content>
-							</Card.Card>
-						{/each}
-						</div>
-						
-						<!-- Bottom pagination controls (duplicate of top) -->
-						{#if totalPages > 1}
-							<div class="flex items-center justify-center gap-2 mt-6">
-								<Button
-									variant="outline"
-									onclick={() => {
-										currentPage = Math.max(1, currentPage - 1);
-										scrollToResults();
-									}}
-									disabled={currentPage <= 1}
-								>
-									← Previous
-								</Button>
-
-								<div class="flex items-center gap-1">
-									{#each Array(totalPages).fill().map((_, i) => i + 1) as page}
-										{#if page === currentPage || page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)}
-											<Button
-												variant={page === currentPage ? 'default' : 'outline'}
-												onclick={() => {
-													if (page !== currentPage) {
-														currentPage = page;
-														scrollToResults();
-													}
-												}}
-												class="min-w-[2.5rem]"
-											>
-												{page}
-											</Button>
-										{:else if page === currentPage - 2 || page === currentPage + 2}
-											<span class="px-2">...</span>
-										{/if}
+						<!-- Restaurants without available reservations -->
+						{#if venuesWithoutSlots.length > 0}
+							<div class="no-availability-section">
+								<h3>Restaurants matching your filters but without available reservations:</h3>
+								<p class="no-availability-list">
+									{#each venuesWithoutSlots as venue, i}
+										<a href="{resyHandler.generateResyUrl(venue, reservationDate, partySize)}"
+										   target="_blank"
+										   class="no-availability-link">
+											{resyHandler.getVenueDisplayName(venue)}
+										</a>{#if i < venuesWithoutSlots.length - 1}, {/if}
 									{/each}
-								</div>
-
-								<Button
-									variant="outline"
-									onclick={() => {
-										currentPage = Math.min(totalPages, currentPage + 1);
-										scrollToResults();
-									}}
-									disabled={currentPage >= totalPages}
-								>
-									Next →
-								</Button>
+								</p>
 							</div>
 						{/if}
 					{:else}
 						<div class="no-results">
-							<p>No restaurants with available reservations found for your search criteria. Try adjusting your filters or selecting a different date/time.</p>
+							<p>No restaurants found for your search criteria. Try adjusting your filters.</p>
 						</div>
 					{/if}
-
-					<!-- Restaurants without available reservations -->
-					{#if venuesWithoutSlots.length > 0}
-						<div class="no-availability-section">
-							<h3>Restaurants matching your filters but without available reservations:</h3>
-							<p class="no-availability-list">
-								{#each venuesWithoutSlots as venue, i}
-									<a href="{resyHandler.generateResyUrl(venue, reservationDate, partySize)}"
-									   target="_blank"
-									   class="no-availability-link">
-										{resyHandler.getVenueDisplayName(venue)}
-									</a>{#if i < venuesWithoutSlots.length - 1}, {/if}
-								{/each}
-							</p>
-						</div>
-					{/if}
-				{:else}
-					<div class="no-results">
-						<p>No restaurants found for your search criteria. Try adjusting your filters.</p>
+				</div>
+			{:else if form?.success === false}
+				<div class="error-section">
+					<h2>Search Error</h2>
+					<p class="error-message">{form.error || 'An unexpected error occurred'}</p>
+				</div>
+			{:else if form}
+				<div class="no-results">
+					<p>No restaurants found for your search criteria. Try adjusting your filters.</p>
+				</div>
+			{:else}
+				<div class="results-placeholder" aria-live="polite">
+					<div class="results-placeholder__message">
+						<h2>Plan your night</h2>
+						<p>Use the filters to search for reservations and see matches instantly.</p>
 					</div>
-				{/if}
-			</div>
-		{:else if form.success === false}
-			<div class="error-section">
-				<h2>Search Error</h2>
-				<p class="error-message">{form.error || 'An unexpected error occurred'}</p>
-			</div>
-		{/if}
-	{/if}
+					<div class="results-placeholder__grid" aria-hidden="true">
+						{#each placeholderCards as _, index (index)}
+							<Card.Card class="placeholder-card">
+								<Card.Header class="placeholder-card__header">
+									<Skeleton class="h-6 w-2/3" />
+									<Skeleton class="h-4 w-1/3" />
+								</Card.Header>
+								<Card.Content class="placeholder-card__content">
+									<Skeleton class="h-4 w-full" />
+									<Skeleton class="h-4 w-3/4" />
+									<Skeleton class="h-4 w-2/3" />
+									<Skeleton class="h-32 w-full rounded-xl" />
+									<div class="placeholder-card__slots">
+										<Skeleton class="h-8 w-24 rounded-full" />
+										<Skeleton class="h-8 w-20 rounded-full" />
+										<Skeleton class="h-8 w-28 rounded-full" />
+									</div>
+								</Card.Content>
+							</Card.Card>
+						{/each}
+					</div>
+				</div>
+			{/if}
+		</section>
+	</div>
 </div>
-

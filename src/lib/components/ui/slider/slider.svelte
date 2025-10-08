@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Slider as SliderPrimitive } from "bits-ui";
-	import { cn, type WithoutChildrenOrChild } from "$lib/utils.js";
+	import { cn } from "$lib/utils.js";
+	import type { WithoutChildrenOrChild } from "bits-ui";
 
 	let {
 		ref = $bindable(null),
@@ -10,6 +11,7 @@
 		...restProps
 	}: WithoutChildrenOrChild<SliderPrimitive.RootProps> = $props();
 </script>
+
 
 <!--
 Discriminated Unions + Destructing (required for bindable) do not
@@ -21,31 +23,30 @@ get along, so we shut typescript up by casting `value` to `never`.
 	data-slot="slider"
 	{orientation}
 	class={cn(
-		"relative flex w-full touch-none select-none items-center data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-44 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col data-[disabled]:opacity-50",
+		"relative flex w-full touch-none select-none items-center data-[orientation=vertical]:h-full data-[orientation=vertical]:min-h-44 data-[orientation=vertical]:w-auto data-[orientation=vertical]:flex-col data-[disabled]:opacity-50 isolate",
 		className
 	)}
 	{...restProps}
 >
-	{#snippet children({ thumbs })}
+	{#snippet children({ thumbItems })}
 		<span
 			data-orientation={orientation}
 			data-slot="slider-track"
 			class={cn(
-				"bg-muted relative grow rounded-full data-[orientation=horizontal]:h-1.5 data-[orientation=vertical]:h-full data-[orientation=horizontal]:w-full data-[orientation=vertical]:w-1.5"
+				"bg-secondary relative grow rounded-full data-[orientation=horizontal]:h-1.5 data-[orientation=vertical]:h-full data-[orientation=horizontal]:w-full data-[orientation=vertical]:w-1.5"
 			)}
-		>
-			<SliderPrimitive.Range
-				data-slot="slider-range"
-				class={cn(
-					"bg-primary absolute data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full"
-				)}
-			/>
-		</span>
-		{#each thumbs as thumb (thumb)}
+		></span>
+		<SliderPrimitive.Range
+			data-slot="slider-range"
+			class={cn(
+				"bg-primary absolute rounded-full data-[orientation=horizontal]:h-1.5 data-[orientation=vertical]:w-1.5"
+			)}
+		/>
+		{#each thumbItems as thumbItem (thumbItem.index)}
 			<SliderPrimitive.Thumb
 				data-slot="slider-thumb"
-				index={thumb}
-				class="border-primary bg-background ring-ring/50 focus-visible:outline-hidden block size-4 shrink-0 rounded-full border shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 disabled:pointer-events-none disabled:opacity-50 relative z-10"
+				index={thumbItem.index}
+				class="border-primary bg-blue-500 ring-border/50 focus-visible:outline-hidden block size-4 shrink-0 rounded-full border shadow-sm transition-[color,box-shadow] hover:ring-4 focus-visible:ring-4 disabled:pointer-events-none disabled:opacity-50"
 			/>
 		{/each}
 	{/snippet}

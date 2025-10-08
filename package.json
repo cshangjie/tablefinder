@@ -23,6 +23,7 @@
   },
   "type": "module",
   "dependencies": {
+    "@tailwindcss/vite": "^4.1.14",
     "better-sqlite3": "^12.2.0",
     "bits-ui": "^2.11.4",
     "clsx": "^2.1.1",

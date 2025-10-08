@@ -24,8 +24,8 @@
 	<title>Login - JennyTime</title>
 </svelte:head>
 
-<main class="container flex min-h-screen items-center justify-center">
-	<div class="mx-auto flex w-full max-w-md flex-col gap-6">
+<main class="login-page container flex min-h-screen items-center justify-center">
+	<div class="login-stack mx-auto flex w-full max-w-md flex-col gap-6">
 		<Card.Root>
 			<Card.Header class="text-center">
 				<Card.Title class="text-2xl">Welcome to JennyTime</Card.Title>
