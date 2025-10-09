@@ -2,11 +2,12 @@
 	import { createEventDispatcher } from 'svelte';
 	
 	export let options: { value: string; label: string }[] = [];
-	export let selected: string[] = [];
-	export let placeholder: string = 'Select options...';
-	export let disabled: boolean = false;
-	export let name: string = '';
-	export let id: string = '';
+export let selected: string[] = [];
+export let placeholder: string = 'Select options...';
+export let disabled: boolean = false;
+export let name: string = '';
+export let id: string = '';
+export let selectionMode: 'multiple' | 'single' = 'multiple';
 	
 	const dispatch = createEventDispatcher();
 	
@@ -20,11 +21,18 @@
 	
 	function toggleOption(value: string) {
 		if (disabled) return;
-		
+
+		if (selectionMode === 'single') {
+			selected = [value];
+			dispatch('change', { value: selected });
+			closeDropdown();
+			return;
+		}
+
 		const newSelected = selected.includes(value)
-			? selected.filter(v => v !== value)
+			? selected.filter((v) => v !== value)
 			: [...selected, value];
-		
+
 		selected = newSelected;
 		dispatch('change', { value: newSelected });
 	}
@@ -39,14 +47,14 @@
 	}
 	
 	function selectAll() {
-		if (disabled) return;
+		if (disabled || selectionMode === 'single') return;
 		const allValues = options.map(option => option.value);
 		selected = allValues;
 		dispatch('change', { value: allValues });
 	}
 	
 	function clearAll() {
-		if (disabled) return;
+		if (disabled || selectionMode === 'single') return;
 		selected = [];
 		dispatch('change', { value: [] });
 	}
@@ -67,7 +75,7 @@
 </script>
 
 <div class="multi-select-container" class:disabled>
-	<input type="hidden" {name} value={selected.join(',')} />
+	<input type="hidden" {name} value={selectionMode === 'single' ? (selected[0] ?? '') : selected.join(',')} />
 	
 	<div 
 		class="multi-select-trigger" 
@@ -94,10 +102,12 @@
 	
 	{#if isOpen}
 		<div class="multi-select-dropdown">
-			<div class="actions">
-				<button type="button" on:click={selectAll} class="action-btn">Select All</button>
-				<button type="button" on:click={clearAll} class="action-btn">Clear All</button>
-			</div>
+			{#if selectionMode === 'multiple'}
+				<div class="actions">
+					<button type="button" on:click={selectAll} class="action-btn">Select All</button>
+					<button type="button" on:click={clearAll} class="action-btn">Clear All</button>
+				</div>
+			{/if}
 			
 			<div class="options-list" role="listbox">
 				{#each filteredOptions as option}
@@ -140,8 +150,8 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.55rem 0.75rem;
-		min-height: 2.5rem;
+		padding: 0.5rem 0.7rem;
+		min-height: 2.25rem;
 		border-radius: calc(var(--radius) * 1.6);
 		border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
 		background: color-mix(in srgb, var(--color-card) 97%, var(--color-background) 3%);
@@ -186,9 +196,9 @@
 	}
 
 	.arrow {
-		font-size: 0.75rem;
+		font-size: 0.7rem;
 		color: color-mix(in srgb, var(--color-muted-foreground) 65%, var(--color-foreground) 35%);
-		margin-left: 0.75rem;
+		margin-left: 0.6rem;
 		transition: transform 150ms ease;
 	}
 

@@ -86,16 +86,23 @@
 		{ value: '3', label: '$$$' }
 	];
 	let loading = $state(false);
-	let sortBy = $state('default'); // default, rating, distance
+	const sortOptions = [
+		{ value: 'default', label: 'Least Reservations' },
+		{ value: 'rating', label: 'Highest Rated' },
+		{ value: 'distance', label: 'Distance (Closest First)' }
+	];
+	let sortBySelection = $state<string[]>(['default']);
+	const sortBy = $derived(sortBySelection[0] ?? 'default'); // default, rating, distance
 
 	// Pagination state
 	let currentPage = $state(1);
-	let pageSize = $state(10); // Default to 20 results per page
-	let pageSizeOptions = [
-		{ value: 10, label: '10 per page' },
-		{ value: 20, label: '20 per page' },
-		{ value: 50, label: '50 per page' }
+	const pageSizeOptions = [
+		{ value: '10', label: '10 per page' },
+		{ value: '20', label: '20 per page' },
+		{ value: '50', label: '50 per page' }
 	];
+	let pageSizeSelection = $state<string[]>([pageSizeOptions[0].value]);
+	const pageSize = $derived(parseInt(pageSizeSelection[0] ?? pageSizeOptions[0].value, 10) || 10);
 
 	// Collapsible card state
 	let expandedCards = $state(new Set<string>());
@@ -189,7 +196,7 @@
 
 	// Scroll to results function
 	let resultsSection: HTMLElement | undefined = $state();
-	const placeholderCards = Array.from({ length: 3 }, (_, i) => i);
+	const placeholderCards = Array.from({ length: 2 }, (_, i) => i);
 
 	const scrollToResults = () => {
 		if (resultsSection) {
@@ -202,7 +209,7 @@
 </script>
 
 <svelte:head>
-	<title>Search - JennyTime</title>
+	<title>Search</title>
 </svelte:head>
 
 <div class="search-page w-full p-6 space-y-8">
@@ -218,53 +225,31 @@
 
 	<div class="search-layout">
 		<section class="filters-panel">
-			<form method="POST" action="?/search" use:enhance={handleSubmit} class="search-form space-y-6">
-				<!-- City/Address Row - Full Width -->
-				<div class="field-group space-y-2">
-					<Label for="city">City/Address</Label>
-					<Input
-						type="text"
-						id="city"
-						name="city"
-						bind:value={city}
-						placeholder="City or address"
-						disabled={loading}
-						required
-					/>
-				</div>
-
-				<!-- Time Selection Row -->
-				<div class="field-group field-range space-y-3">
-					<Label for="timeRange">Time Range</Label>
-					<div class="slider-wrapper space-y-2">
-						<Slider
-							type="multiple"
-							bind:value={timeValues}
-							min={MIN_TIME}
-							max={MAX_TIME}
-							step={15}
-							class="w-full"
+			<form method="POST" action="?/search" use:enhance={handleSubmit} class="search-form">
+				<!-- Filter grid -->
+				<div class="field-grid">
+					<div class="field-group">
+						<Label for="city">City/Address</Label>
+						<Input
+							type="text"
+							id="city"
+							name="city"
+							bind:value={city}
+							placeholder="City or address"
+							disabled={loading}
+							required
 						/>
-						<div class="flex justify-between text-sm text-muted-foreground">
-							<span>{formatTime(timeValues[0])}</span>
-							<span>{formatTime(timeValues[1])}</span>
-						</div>
 					</div>
-					<input type="hidden" name="timeStart" value={timeStartForm} />
-					<input type="hidden" name="timeEnd" value={timeEndForm} />
-				</div>
 
-				<!-- Second Row: Date, Seats, Radius, Seating -->
-					<div class="field-grid">
-						<div class="field-group space-y-2">
+					<div class="field-group">
 						<Label for="reservationDate">Reservation Date</Label>
 						<Popover.Root>
 							<Popover.Trigger
-								class={cn(
-									buttonVariants({ variant: 'outline' }),
-									'w-full justify-start text-left font-normal h-10 dark:bg-secondary',
-									!selectedDate && 'text-muted-foreground'
-								)}
+							class={cn(
+								buttonVariants({ variant: 'outline' }),
+								'w-full justify-start text-left font-normal h-10 dark:bg-secondary',
+								!selectedDate && 'text-muted-foreground'
+							)}
 							>
 								<CalendarIcon class="mr-2 size-4" />
 								{selectedDate ? df.format(selectedDate.toDate(getLocalTimeZone())) : 'Pick a date'}
@@ -276,7 +261,7 @@
 						<input type="hidden" name="reservationDate" value={reservationDate} />
 					</div>
 
-					<div class="field-group space-y-2">
+					<div class="field-group">
 						<Label for="partySize">Seats</Label>
 						<Select id="partySize" name="partySize" bind:value={partySize} disabled={loading}>
 							<option value="1">1</option>
@@ -292,7 +277,7 @@
 						</Select>
 					</div>
 
-					<div class="field-group space-y-2">
+					<div class="field-group">
 						<Label for="searchRadius">Radius (miles)</Label>
 						<Input
 							type="number"
@@ -304,11 +289,11 @@
 							step="0.5"
 							placeholder="3"
 							disabled={loading}
-								required
-							/>
-						</div>
+							required
+						/>
+					</div>
 
-						<div class="field-group space-y-2">
+					<div class="field-group">
 						<Label for="seatingType">Seating Preference</Label>
 						<Select id="seatingType" name="seatingType" bind:value={seatingType} disabled={loading}>
 							<option value="">No Preference</option>
@@ -317,24 +302,43 @@
 						</Select>
 					</div>
 				</div>
+				<!-- Time Selection Row -->
+				<div class="field-group field-range">
+					<Label for="timeRange">Time Window</Label>
+					<div class="slider-wrapper">
+						<Slider
+							type="multiple"
+							bind:value={timeValues}
+							min={MIN_TIME}
+							max={MAX_TIME}
+							step={15}
+							class="w-full"
+						/>
+						<div class="flex justify-between text-sm text-muted-foreground">
+							<span>{formatTime(timeValues[0])}</span>
+							<span>{formatTime(timeValues[1])}</span>
+						</div>
+					</div>
+					<input type="hidden" name="timeStart" value={timeStartForm} />
+					<input type="hidden" name="timeEnd" value={timeEndForm} />
+			</div>
 
-
-				<div class="flex justify-center">
-					<Button
-						type="submit"
-						variant="default"
-						disabled={loading || !city.trim() || !reservationDate}
-						size="lg"
-						class="w-full sm:w-auto"
-					>
-						{#if loading}
-							<Spinner class="mr-2" />
-							Finding...
-						{:else}
-							Find Restaurants
-						{/if}
-					</Button>
-				</div>
+			<div class="flex justify-center">
+				<Button
+					type="submit"
+					variant="default"
+					disabled={loading || !city.trim() || !reservationDate}
+					size="lg"
+					class="w-full sm:w-auto"
+				>
+					{#if loading}
+						<Spinner class="mr-2" />
+						Finding...
+					{:else}
+						Find Restaurants
+					{/if}
+				</Button>
+			</div>
 			</form>
 		</section>
 
@@ -348,11 +352,13 @@
 							<div class="results-filters flex flex-wrap gap-4 items-end">
 								<div class="filter-group space-y-2 flex-1 min-w-[200px]">
 									<Label for="sortBy">Sort by</Label>
-									<Select id="sortBy" bind:value={sortBy}>
-										<option value="default">Least Reservations</option>
-										<option value="rating">Highest Rated</option>
-										<option value="distance">Distance (Closest First)</option>
-									</Select>
+									<MultiSelect
+										id="sortBy"
+										options={sortOptions}
+										bind:selected={sortBySelection}
+										selectionMode="single"
+										placeholder="Sort results"
+									/>
 								</div>
 								<div class="filter-group space-y-2 flex-1 min-w-[200px]">
 									<Label for="priceRanges">Price Range</Label>
@@ -367,11 +373,14 @@
 								</div>
 								<div class="filter-group space-y-2 min-w-[150px]">
 									<Label for="pageSize">Show</Label>
-									<Select id="pageSize" bind:value={pageSize} onchange={() => currentPage = 1}>
-										{#each pageSizeOptions as option}
-											<option value={option.value}>{option.label}</option>
-										{/each}
-									</Select>
+									<MultiSelect
+										id="pageSize"
+										options={pageSizeOptions}
+										bind:selected={pageSizeSelection}
+										selectionMode="single"
+										placeholder="Results per page"
+										on:change={() => currentPage = 1}
+									/>
 								</div>
 							</div>
 						{/if}
@@ -658,20 +667,19 @@
 					</div>
 					<div class="results-placeholder__grid" aria-hidden="true">
 						{#each placeholderCards as _, index (index)}
-							<Card.Card class="placeholder-card">
-								<Card.Header class="placeholder-card__header">
-									<Skeleton class="h-6 w-2/3" />
-									<Skeleton class="h-4 w-1/3" />
+					<Card.Card class="placeholder-card">
+						<Card.Header class="placeholder-card__header">
+							<Skeleton class="h-5 w-2/3" />
+							<Skeleton class="h-3.5 w-1/3" />
 								</Card.Header>
-								<Card.Content class="placeholder-card__content">
-									<Skeleton class="h-4 w-full" />
-									<Skeleton class="h-4 w-3/4" />
-									<Skeleton class="h-4 w-2/3" />
-									<Skeleton class="h-32 w-full rounded-xl" />
+					<Card.Content class="placeholder-card__content">
+						<Skeleton class="h-4 w-full" />
+						<Skeleton class="h-4 w-3/4" />
+						<Skeleton class="h-4 w-2/3" />
+						<Skeleton class="h-16 w-full rounded-xl" />
 									<div class="placeholder-card__slots">
 										<Skeleton class="h-8 w-24 rounded-full" />
 										<Skeleton class="h-8 w-20 rounded-full" />
-										<Skeleton class="h-8 w-28 rounded-full" />
 									</div>
 								</Card.Content>
 							</Card.Card>
