@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import MultiSelect from '$lib/components/MultiSelect.svelte';
 	import { ResyResponseHandler, type ResyVenue } from '$lib/models/ResyResponse';
 	import type { ActionData } from './$types';
-	import { Button, Input, Label, Select, Skeleton } from '$lib/components/ui';
+	import { Button, Input, Label, Skeleton } from '$lib/components/ui';
 	import { Calendar as CalendarComponent } from '$lib/components/ui/calendar/index.js';
 	import { Slider } from '$lib/components/ui/slider/index.js';
 	import * as Popover from '$lib/components/ui/popover/index.js';
@@ -14,7 +13,7 @@
 	import { cn } from '$lib/utils.js';
 	import { buttonVariants } from '$lib/components/ui/button/index.js';
 	import ThemeToggle from '$lib/components/ThemeToggle.svelte';
-
+	import * as Select from "$lib/components/ui/select/index.js";
 	interface Props {
 		form: ActionData;
 		data: { url: { searchParams: Record<string, string> } };
@@ -91,8 +90,8 @@
 		{ value: 'rating', label: 'Highest Rated' },
 		{ value: 'distance', label: 'Distance (Closest First)' }
 	];
-	let sortBySelection = $state<string[]>(['default']);
-	const sortBy = $derived(sortBySelection[0] ?? 'default'); // default, rating, distance
+	let sortBySelection = $state(sortOptions[0].value);
+	const sortBy = $derived(sortBySelection ?? sortOptions[0].value); // default, rating, distance
 
 	// Pagination state
 	let currentPage = $state(1);
@@ -101,8 +100,8 @@
 		{ value: '20', label: '20 per page' },
 		{ value: '50', label: '50 per page' }
 	];
-	let pageSizeSelection = $state<string[]>([pageSizeOptions[0].value]);
-	const pageSize = $derived(parseInt(pageSizeSelection[0] ?? pageSizeOptions[0].value, 10) || 10);
+	let pageSizeSelection = $state(pageSizeOptions[0].value);
+	const pageSize = $derived(parseInt(pageSizeSelection ?? pageSizeOptions[0].value, 10) || 10);
 
 	// Collapsible card state
 	let expandedCards = $state(new Set<string>());
@@ -182,6 +181,31 @@
 		return Math.ceil(totalItems / size);
 	};
 
+	const getPageNumbers = (current: number, total: number): Array<number | 'ellipsis'> => {
+		if (total <= 7) {
+			return Array.from({ length: total }, (_, i) => i + 1);
+		}
+
+		const pages: Array<number | 'ellipsis'> = [1];
+		const start = Math.max(2, current - 1);
+		const end = Math.min(total - 1, current + 1);
+
+		if (start > 2) {
+			pages.push('ellipsis');
+		}
+
+		for (let page = start; page <= end; page += 1) {
+			pages.push(page);
+		}
+
+		if (end < total - 1) {
+			pages.push('ellipsis');
+		}
+
+		pages.push(total);
+		return pages;
+	};
+
 	// Reset to page 1 when search results change or sort/filter changes
 	const resetPagination = () => {
 		currentPage = 1;
@@ -205,6 +229,48 @@
 				block: 'start' 
 			});
 		}
+	};
+	const seatOptions = [
+		{ value: '1', label: '1' },
+		{ value: '2', label: '2' },
+		{ value: '3', label: '3' },
+		{ value: '4', label: '4' },
+		{ value: '5', label: '5' },
+		{ value: '6', label: '6' },
+		{ value: '7', label: '7' },
+		{ value: '8', label: '8' },
+		{ value: '9', label: '9' },
+		{ value: '10', label: '10+' }
+	];
+	const seatTriggerContent = $derived(
+		seatOptions.find((option) => option.value === partySize)?.label ?? 'Select seats'
+	);
+	const sortTriggerContent = $derived(
+		sortOptions.find((option) => option.value === sortBySelection)?.label ?? 'Sort results'
+	);
+	const priceRangeTriggerContent = $derived((() => {
+		const selected = selectedPriceRanges ?? [];
+
+		const selectedLabels = selected
+			.map((value) => priceRangeOptions.find((option) => option.value === value)?.label ?? value)
+			.filter(Boolean);
+
+		if (selected.length === 0 || selectedLabels.length === priceRangeOptions.length) {
+			return 'All prices';
+		}
+
+		return selectedLabels.join(', ');
+	})());
+	const pageSizeTriggerContent = $derived(
+		pageSizeOptions.find((option) => option.value === pageSizeSelection)?.label ?? 'Results per page'
+	);
+	const RADIUS_STEP = 0.5;
+	const MIN_RADIUS = 0.5;
+	const MAX_RADIUS = 50;
+
+	const adjustRadius = (delta: number) => {
+		const next = Number((Number(searchRadius) + delta).toFixed(1));
+		searchRadius = Math.min(MAX_RADIUS, Math.max(MIN_RADIUS, next));
 	};
 </script>
 
@@ -260,50 +326,61 @@
 						</Popover.Root>
 						<input type="hidden" name="reservationDate" value={reservationDate} />
 					</div>
-
-					<div class="field-group">
-						<Label for="partySize">Seats</Label>
-						<Select id="partySize" name="partySize" bind:value={partySize} disabled={loading}>
-							<option value="1">1</option>
-							<option value="2">2</option>
-							<option value="3">3</option>
-							<option value="4">4</option>
-							<option value="5">5</option>
-							<option value="6">6</option>
-							<option value="7">7</option>
-							<option value="8">8</option>
-							<option value="9">9</option>
-							<option value="10">10+</option>
-						</Select>
-					</div>
+					<Label for="seats">Seats</Label>
+					<Select.Root type="single" name="seats" bind:value={partySize}>
+						<Select.Trigger class="w-full h-10 justify-between">
+							{seatTriggerContent}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Group>
+								<Select.Label>Seats</Select.Label>
+								{#each seatOptions as option (option.value)}
+									<Select.Item value={option.value} label={option.label}>
+										{option.label}
+									</Select.Item>
+								{/each}
+							</Select.Group>
+						</Select.Content>
+					</Select.Root>
 
 					<div class="field-group">
 						<Label for="searchRadius">Radius (miles)</Label>
-						<Input
-							type="number"
-							id="searchRadius"
-							name="searchRadius"
-							bind:value={searchRadius}
-							min="0.5"
-							max="50"
-							step="0.5"
-							placeholder="3"
-							disabled={loading}
-							required
-						/>
+						<div class="flex items-center space-x-2">
+							<Button
+								type="button"
+								variant="outline"
+								size="icon"
+								class="h-10 w-10"
+								onclick={() => adjustRadius(-RADIUS_STEP)}
+								disabled={loading || searchRadius <= MIN_RADIUS}
+							>
+								-
+							</Button>
+							<Input
+								type="number"
+								id="searchRadius"
+								name="searchRadius"
+								bind:value={searchRadius}
+								min={MIN_RADIUS}
+								max={MAX_RADIUS}
+								step={RADIUS_STEP}
+								placeholder="3"
+								disabled={loading}
+								required
+								class="text-center [appearance:textfield] [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+							/>
+							<Button
+								type="button"
+								variant="outline"
+								size="icon"
+								class="h-10 w-10"
+								onclick={() => adjustRadius(RADIUS_STEP)}
+								disabled={loading || searchRadius >= MAX_RADIUS}
+							>
+								+
+							</Button>
+						</div>
 					</div>
-
-					<div class="field-group">
-						<Label for="seatingType">Seating Preference</Label>
-						<Select id="seatingType" name="seatingType" bind:value={seatingType} disabled={loading}>
-							<option value="">No Preference</option>
-							<option value="indoor">Indoor</option>
-							<option value="outdoor">Outdoor</option>
-						</Select>
-					</div>
-				</div>
-				<!-- Time Selection Row -->
-				<div class="field-group field-range">
 					<Label for="timeRange">Time Window</Label>
 					<div class="slider-wrapper">
 						<Slider
@@ -321,7 +398,7 @@
 					</div>
 					<input type="hidden" name="timeStart" value={timeStartForm} />
 					<input type="hidden" name="timeEnd" value={timeEndForm} />
-			</div>
+				</div>
 
 			<div class="flex justify-center">
 				<Button
@@ -349,38 +426,77 @@
 					<div class="results-controls space-y-4">
 						<h2 class="text-2xl font-semibold">Search Results</h2>
 						{#if form.results.search?.hits && form.results.search.hits.length > 0}
-							<div class="results-filters flex flex-wrap gap-4 items-end">
-								<div class="filter-group space-y-2 flex-1 min-w-[200px]">
+						<div class="results-filters grid gap-4 md:grid-cols-3">
+								<div class="filter-group space-y-2">
 									<Label for="sortBy">Sort by</Label>
-									<MultiSelect
-										id="sortBy"
-										options={sortOptions}
-										bind:selected={sortBySelection}
-										selectionMode="single"
-										placeholder="Sort results"
-									/>
-								</div>
-								<div class="filter-group space-y-2 flex-1 min-w-[200px]">
-									<Label for="priceRanges">Price Range</Label>
-									<MultiSelect
-										options={priceRangeOptions}
-										bind:selected={selectedPriceRanges}
-										placeholder="All prices"
-										disabled={loading}
-										name="priceRanges"
-										id="priceRanges"
-									/>
-								</div>
-								<div class="filter-group space-y-2 min-w-[150px]">
-									<Label for="pageSize">Show</Label>
-									<MultiSelect
-										id="pageSize"
-										options={pageSizeOptions}
-										bind:selected={pageSizeSelection}
-										selectionMode="single"
-										placeholder="Results per page"
+									<Select.Root
+										type="single"
+										name="sortBy"
+										bind:value={sortBySelection}
 										on:change={() => currentPage = 1}
-									/>
+									>
+										<Select.Trigger class="w-full justify-between">
+											{sortTriggerContent}
+										</Select.Trigger>
+										<Select.Content>
+											<Select.Group>
+												<Select.Label>Sort results</Select.Label>
+												{#each sortOptions as option (option.value)}
+													<Select.Item value={option.value} label={option.label}>
+														{option.label}
+													</Select.Item>
+												{/each}
+											</Select.Group>
+										</Select.Content>
+									</Select.Root>
+								</div>
+								<div class="filter-group space-y-2">
+									<Label for="priceRanges">Price Range</Label>
+									<Select.Root
+										type="multiple"
+										bind:value={selectedPriceRanges}
+										disabled={loading}
+									>
+										<Select.Trigger class="w-full justify-between">
+											<span data-slot="select-value" class="truncate text-left">
+												{priceRangeTriggerContent}
+											</span>
+										</Select.Trigger>
+										<Select.Content>
+											<Select.Group>
+												<Select.Label>Price Range</Select.Label>
+												{#each priceRangeOptions as option (option.value)}
+													<Select.Item value={option.value} label={option.label}>
+														{option.label}
+													</Select.Item>
+												{/each}
+											</Select.Group>
+										</Select.Content>
+									</Select.Root>
+									<input type="hidden" name="priceRanges" value={selectedPriceRanges.join(',')} />
+								</div>
+								<div class="filter-group space-y-2">
+									<Label for="pageSize">Show</Label>
+									<Select.Root
+										type="single"
+										name="pageSize"
+										bind:value={pageSizeSelection}
+										on:change={() => currentPage = 1}
+									>
+										<Select.Trigger class="w-full justify-between">
+											{pageSizeTriggerContent}
+										</Select.Trigger>
+										<Select.Content>
+											<Select.Group>
+												<Select.Label>Results per page</Select.Label>
+												{#each pageSizeOptions as option (option.value)}
+													<Select.Item value={option.value} label={option.label}>
+														{option.label}
+													</Select.Item>
+												{/each}
+											</Select.Group>
+										</Select.Content>
+									</Select.Root>
 								</div>
 							</div>
 						{/if}
@@ -400,12 +516,13 @@
 					</div>
 
 					{#if resyHandler && resyHandler.getVenues().length > 0}
-						{@const selectedPriceIds = selectedPriceRanges.map(p => parseInt(p))}
+						{@const selectedPriceIds = selectedPriceRanges.map((p: string) => parseInt(p))}
 						{@const venuesWithSlots = resyHandler.filterVenuesByTimeAndPrice(timeStart, timeEnd, selectedPriceIds)}
 						{@const venuesWithoutSlots = resyHandler.getVenues().filter(venue => !venuesWithSlots.includes(venue))}
 						{@const sortedVenues = getSortedVenues(venuesWithSlots, sortBy)}
 						{@const totalPages = getTotalPages(sortedVenues.length, pageSize)}
 						{@const paginatedVenues = getPaginatedVenues(sortedVenues, currentPage, pageSize)}
+						{@const pageNumbers = getPageNumbers(currentPage, totalPages)}
 						{#if sortedVenues.length > 0}
 							<!-- Results summary and pagination controls -->
 							<div class="results-summary">
@@ -425,8 +542,10 @@
 										</Button>
 
 										<div class="flex items-center gap-1">
-											{#each Array(totalPages).fill().map((_, i) => i + 1) as page}
-												{#if page === currentPage || page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)}
+											{#each pageNumbers as page, idx (typeof page === 'number' ? page : `ellipsis-${idx}`)}
+												{#if page === 'ellipsis'}
+													<span class="px-2 text-muted-foreground">…</span>
+												{:else}
 													<Button
 														variant={page === currentPage ? 'default' : 'outline'}
 														onclick={() => {
@@ -436,11 +555,10 @@
 															}
 														}}
 														class="min-w-[2.5rem]"
+														aria-current={page === currentPage ? 'page' : undefined}
 													>
 														{page}
 													</Button>
-												{:else if page === currentPage - 2 || page === currentPage + 2}
-													<span class="px-2">...</span>
 												{/if}
 											{/each}
 										</div>
@@ -462,7 +580,7 @@
 							<div class="results-grid space-y-4">
 								{#each paginatedVenues as venue}
 								{@const isExpanded = expandedCards.has(venue.objectID)}
-								<Card.Card class="result-card">
+								<Card.Root class="result-card">
 									<Card.Header class="result-card__header cursor-pointer" onclick={() => toggleCard(venue.objectID)}>
 										<div class="flex items-start justify-between gap-2">
 											<div class="flex-1">
@@ -513,7 +631,7 @@
 													<details class="restaurant-details">
 														<summary class="details-summary">About this restaurant</summary>
 														<div class="restaurant-description">
-															{@html resyHandler.getVenueContent(venue, 'about').replace(/\n/g, '<br>')}
+															<!-- {@html resyHandler.getVenueContent(venue, 'about').replace(/\n/g, '<br>')} -->
 														</div>
 													</details>
 												{/if}
@@ -522,7 +640,7 @@
 													<details class="restaurant-details need-to-know">
 														<summary class="details-summary">💡 Need to Know</summary>
 														<div class="restaurant-description important">
-															{@html resyHandler.getVenueContent(venue, 'need_to_know').replace(/\n/g, '<br>')}
+															<!-- {@html resyHandler.getVenueContent(venue, 'need_to_know').replace(/\n/g, '<br>')} -->
 														</div>
 													</details>
 												{/if}
@@ -531,7 +649,7 @@
 													<details class="restaurant-details why-like">
 														<summary class="details-summary">⭐ Why We Like It</summary>
 														<div class="restaurant-description highlight">
-															{@html resyHandler.getVenueContent(venue, 'why_we_like_it').replace(/\n/g, '<br>')}
+															<!-- {@html resyHandler.getVenueContent(venue, 'why_we_like_it').replace(/\n/g, '<br>')} -->
 														</div>
 													</details>
 												{/if}
@@ -572,7 +690,7 @@
 											{/if}
 										</div>
 									</Card.Content>
-								</Card.Card>
+								</Card.Root>
 							{/each}
 							</div>
 							
@@ -586,13 +704,15 @@
 											scrollToResults();
 										}}
 										disabled={currentPage <= 1}
-									>
+										>
 										← Previous
 									</Button>
 
 									<div class="flex items-center gap-1">
-										{#each Array(totalPages).fill().map((_, i) => i + 1) as page}
-											{#if page === currentPage || page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)}
+										{#each pageNumbers as page, idx (typeof page === 'number' ? `bottom-${page}` : `bottom-ellipsis-${idx}`)}
+											{#if page === 'ellipsis'}
+												<span class="px-2 text-muted-foreground">…</span>
+											{:else}
 												<Button
 													variant={page === currentPage ? 'default' : 'outline'}
 													onclick={() => {
@@ -602,11 +722,10 @@
 														}
 													}}
 													class="min-w-[2.5rem]"
+													aria-current={page === currentPage ? 'page' : undefined}
 												>
 													{page}
 												</Button>
-											{:else if page === currentPage - 2 || page === currentPage + 2}
-												<span class="px-2">...</span>
 											{/if}
 										{/each}
 									</div>
@@ -667,22 +786,22 @@
 					</div>
 					<div class="results-placeholder__grid" aria-hidden="true">
 						{#each placeholderCards as _, index (index)}
-					<Card.Card class="placeholder-card">
-						<Card.Header class="placeholder-card__header">
-							<Skeleton class="h-5 w-2/3" />
-							<Skeleton class="h-3.5 w-1/3" />
+							<Card.Root class="placeholder-card">
+								<Card.Header class="placeholder-card__header">
+									<Skeleton class="h-5 w-2/3" />
+									<Skeleton class="h-3.5 w-1/3" />
 								</Card.Header>
-					<Card.Content class="placeholder-card__content">
-						<Skeleton class="h-4 w-full" />
-						<Skeleton class="h-4 w-3/4" />
-						<Skeleton class="h-4 w-2/3" />
-						<Skeleton class="h-16 w-full rounded-xl" />
+								<Card.Content class="placeholder-card__content">
+									<Skeleton class="h-4 w-full" />
+									<Skeleton class="h-4 w-3/4" />
+									<Skeleton class="h-4 w-2/3" />
+									<Skeleton class="h-16 w-full rounded-xl" />
 									<div class="placeholder-card__slots">
 										<Skeleton class="h-8 w-24 rounded-full" />
 										<Skeleton class="h-8 w-20 rounded-full" />
 									</div>
 								</Card.Content>
-							</Card.Card>
+							</Card.Root>
 						{/each}
 					</div>
 				</div>

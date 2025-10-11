@@ -247,12 +247,34 @@ export class ResyResponseHandler {
     });
   }
 
+  private calculateWilsonScore(rating?: ResyRating): number {
+    if (!rating || !rating.count) return 0;
+
+    const z = 1.96; // 95% confidence
+    const n = rating.count;
+    const normalizedAverage = Math.max(0, Math.min(rating.average / 5, 1));
+
+    const denominator = 1 + (z * z) / n;
+    const centre = normalizedAverage + (z * z) / (2 * n);
+    const margin = z * Math.sqrt((normalizedAverage * (1 - normalizedAverage) + (z * z) / (4 * n)) / n);
+    const score = (centre - margin) / denominator;
+
+    return Number.isFinite(score) ? score : 0;
+  }
+
   sortVenues(sortType: 'rating' | 'distance' | 'availability' | 'default'): ResyVenue[] {
     const venues = [...this.getVenues()];
 
     switch (sortType) {
       case 'rating':
         return venues.sort((a, b) => {
+          const scoreA = this.calculateWilsonScore(a.rating);
+          const scoreB = this.calculateWilsonScore(b.rating);
+
+          if (scoreB !== scoreA) {
+            return scoreB - scoreA;
+          }
+
           const ratingA = a.rating?.average || 0;
           const ratingB = b.rating?.average || 0;
           return ratingB - ratingA;

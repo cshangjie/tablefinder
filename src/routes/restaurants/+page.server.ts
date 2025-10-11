@@ -20,8 +20,10 @@ export const actions: Actions = {
 			const data = await request.formData();
 			
 			// Prepare search parameters for internal API
+			const partySize = (data.get('seats') || data.get('partySize') || '2') as string;
+
 			const searchParams = {
-				party_size: data.get('partySize') as string,
+				party_size: partySize,
 				res_date: data.get('reservationDate') as string,
 				city: data.get('city') as string,
 				time_start: data.get('timeStart') as string,

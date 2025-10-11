@@ -109,9 +109,10 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     // Build request body for Resy API
+    const parsedPartySize = parseInt(searchParams.party_size, 10);
     const slotFilter: any = {
       day: searchParams.res_date,
-      party_size: parseInt(searchParams.party_size)
+      party_size: Number.isFinite(parsedPartySize) && parsedPartySize > 0 ? parsedPartySize : 2
     };
 
     // Add time filter if provided
@@ -256,4 +257,3 @@ export const POST: RequestHandler = async ({ request }) => {
     }, { status: 500 });
   }
 };
-
